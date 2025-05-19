@@ -34,27 +34,12 @@
             if (!data || !data.session_id || now - new Date(data.created_at).getTime() > maxAge) {
                 data = createNewSession();
                 localStorage.setItem(key, JSON.stringify(data));
-                sendSessionData(data);
             }
         } catch (e) {
             data = createNewSession();
             localStorage.setItem(key, JSON.stringify(data));
-            sendSessionData(data);
         }
         return data;
-    }
-
-    function sendSessionData(sessionData) {
-        fetchLater(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                type: 'session',
-                data: sessionData
-            }),
-        });
     }
 
     // Only run this once to get or create the session
