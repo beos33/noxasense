@@ -16,6 +16,7 @@
         const { sessionId, timestamp } = JSON.parse(stored);
         // Check if session is still valid (within 30 minutes)
         if (Date.now() - timestamp < SESSION_DURATION) {
+          console.log('NoxaSense: Using existing session:', sessionId);
           return { sessionId, isNewSession: false };
         }
       }
@@ -25,10 +26,12 @@
         sessionId: newSessionId,
         timestamp: Date.now()
       }));
+      console.log('NoxaSense: Created new session:', newSessionId);
       return { sessionId: newSessionId, isNewSession: true };
     }
 
     function collectData(eventType, data) {
+      console.log(`NoxaSense: Collecting ${eventType} data:`, data);
       batchQueue.push({ eventType, data });
     }
   
@@ -92,6 +95,8 @@
       const payload = [...batchQueue];
       batchQueue.length = 0;
   
+      console.log('NoxaSense: Sending batch:', payload);
+  
       // Try each method in order until one succeeds
       const sent = await sendWithFetchLater(payload) || 
                   await sendWithBeacon(payload) || 
@@ -109,6 +114,7 @@
   
     // Collect session data if it's a new session
     if (isNewSession) {
+      console.log('NoxaSense: Collecting new session data');
       collectData('session', {
         session_id: sessionId,
         application_id: appId,
@@ -124,6 +130,7 @@
     }
   
     // Always collect pageview data
+    console.log('NoxaSense: Collecting pageview data');
     collectData('pageview', {
       pageview_id: pageviewId,
       session_id: sessionId,
@@ -136,6 +143,7 @@
     // Send data when page is hidden or unloaded
     window.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
+        console.log('NoxaSense: Page hidden, sending batch');
         sendBatch();
       }
     });
@@ -143,6 +151,7 @@
     window.addEventListener('pagehide', () => {
       // Use sendBeacon for the final send as it's most reliable for page unload
       if (batchQueue.length > 0) {
+        console.log('NoxaSense: Page unloading, sending final batch');
         const payload = [...batchQueue];
         batchQueue.length = 0;
         navigator.sendBeacon(apiUrl, JSON.stringify(payload));

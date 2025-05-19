@@ -38,24 +38,26 @@ export default async function handler(req, res) {
         continue;
       }
 
-      if (!item.data.application_id) {
-        console.error('Missing application_id in data:', item);
-        continue;
-      }
-
       try {
         if (item.eventType === 'session') {
+          // Only check application_id for session events
+          if (!item.data.application_id) {
+            console.error('Missing application_id in session data:', item);
+            continue;
+          }
           const { error } = await supabase.from('sessions').insert([item.data]);
           if (error) {
             console.error('Error inserting session:', error);
             throw error;
           }
+          console.log('Successfully inserted session:', item.data.session_id);
         } else if (item.eventType === 'pageview') {
           const { error } = await supabase.from('pageviews').insert([item.data]);
           if (error) {
             console.error('Error inserting pageview:', error);
             throw error;
           }
+          console.log('Successfully inserted pageview:', item.data.pageview_id);
         } else {
           console.warn('Unknown event type:', item.eventType);
         }
