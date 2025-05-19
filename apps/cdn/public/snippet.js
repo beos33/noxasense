@@ -1,10 +1,18 @@
 (() => {
-    const batchQueue = [];
-    const appId = window.NOXASENSE_APP_ID;
-    const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
+    // Initialize batch queue from localStorage first
+    const BATCH_KEY = 'noxasense_batch';
     const SESSION_KEY = 'noxasense_session';
     const SESSION_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
-    const BATCH_KEY = 'noxasense_batch';
+    const appId = window.NOXASENSE_APP_ID;
+    const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
+
+    // Initialize batch queue from localStorage
+    let batchQueue = [];
+    const storedBatch = localStorage.getItem(BATCH_KEY);
+    if (storedBatch) {
+      batchQueue = JSON.parse(storedBatch);
+      console.log('NoxaSense: Loaded existing batch queue:', batchQueue);
+    }
   
     if (!appId) {
       console.error('NoxaSense: NOXASENSE_APP_ID is not set');
@@ -29,16 +37,6 @@
       }));
       console.log('NoxaSense: Created new session:', newSessionId);
       return { sessionId: newSessionId, isNewSession: true };
-    }
-
-    function loadBatchQueue() {
-      const stored = localStorage.getItem(BATCH_KEY);
-      if (stored) {
-        const queue = JSON.parse(stored);
-        console.log('NoxaSense: Loaded batch queue:', queue);
-        return queue;
-      }
-      return [];
     }
 
     function saveBatchQueue() {
@@ -110,7 +108,7 @@
   
       // Create a copy of the queue and clear it after
       const payload = [...batchQueue];
-      batchQueue.length = 0;
+      batchQueue = [];
       localStorage.removeItem(BATCH_KEY);
   
       console.log('NoxaSense: Sending batch:', payload);
@@ -123,15 +121,13 @@
       if (!sent) {
         console.error('NoxaSense: Failed to send data with all methods');
         // Put the data back in the queue to try again later
-        batchQueue.push(...payload);
+        batchQueue = [...payload];
         saveBatchQueue();
       }
     }
 
-    // Initialize session and load existing batch queue
+    // Initialize session
     const { sessionId, isNewSession } = getOrCreateSessionId();
-    const existingBatch = loadBatchQueue();
-    batchQueue.push(...existingBatch);
   
     // Collect session data if it's a new session
     if (isNewSession) {
@@ -174,7 +170,7 @@
       if (batchQueue.length > 0) {
         console.log('NoxaSense: Page unloading, sending final batch');
         const payload = [...batchQueue];
-        batchQueue.length = 0;
+        batchQueue = [];
         localStorage.removeItem(BATCH_KEY);
         navigator.sendBeacon(apiUrl, JSON.stringify(payload));
       }
