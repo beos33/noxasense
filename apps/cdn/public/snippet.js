@@ -1,6 +1,7 @@
 (() => {
     const batchQueue = [];
     const appId = window.NOXASENSE_APP_ID;
+    const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
   
     if (!appId) {
       console.error('NoxaSense: NOXASENSE_APP_ID is not set');
@@ -11,56 +12,75 @@
       batchQueue.push({ eventType, data });
     }
   
-    function sendBatch() {
-      if (batchQueue.length === 0) return;
-  
-      // Create a copy of the queue and clear it after
-      const payload = [...batchQueue];
-      batchQueue.length = 0;
-  
-      const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
-
-      // Use fetchLater if available
-      if ('fetchLater' in navigator) {
-        try {
-          navigator.fetchLater(apiUrl, {
+    async function sendWithFetchLater(payload) {
+      try {
+        // Check if fetchLater is available and supported
+        if (typeof navigator.fetchLater === 'function') {
+          const result = await navigator.fetchLater(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
             priority: 'high',
             keepalive: true
           });
-          console.log('NoxaSense: Data queued for sending via fetchLater');
-        } catch (error) {
-          console.error('NoxaSense: Error using fetchLater:', error);
-          // Fallback to regular fetch if fetchLater fails
-          sendWithFetch(payload);
+          console.log('NoxaSense: Data queued for sending via fetchLater', result);
+          return true;
         }
-      } else {
-        sendWithFetch(payload);
+      } catch (error) {
+        console.error('NoxaSense: Error using fetchLater:', error);
       }
+      return false;
     }
 
-    function sendWithFetch(payload) {
-      if ('sendBeacon' in navigator) {
-        const success = navigator.sendBeacon(apiUrl, JSON.stringify(payload));
-        if (!success) {
-          console.error('NoxaSense: Failed to send data via sendBeacon');
-          // Fallback to fetch if sendBeacon fails
-          fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            keepalive: true,
-          }).catch(error => console.error('NoxaSense: Error sending data:', error));
+    async function sendWithBeacon(payload) {
+      try {
+        if (typeof navigator.sendBeacon === 'function') {
+          const success = navigator.sendBeacon(apiUrl, JSON.stringify(payload));
+          if (success) {
+            console.log('NoxaSense: Data sent via sendBeacon');
+            return true;
+          }
         }
-      } else {
-        fetch(apiUrl, {
+      } catch (error) {
+        console.error('NoxaSense: Error using sendBeacon:', error);
+      }
+      return false;
+    }
+
+    async function sendWithFetch(payload) {
+      try {
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-          keepalive: true,
-        }).catch(error => console.error('NoxaSense: Error sending data:', error));
+          keepalive: true
+        });
+        if (response.ok) {
+          console.log('NoxaSense: Data sent via fetch');
+          return true;
+        }
+      } catch (error) {
+        console.error('NoxaSense: Error using fetch:', error);
+      }
+      return false;
+    }
+  
+    async function sendBatch() {
+      if (batchQueue.length === 0) return;
+  
+      // Create a copy of the queue and clear it after
+      const payload = [...batchQueue];
+      batchQueue.length = 0;
+  
+      // Try each method in order until one succeeds
+      const sent = await sendWithFetchLater(payload) || 
+                  await sendWithBeacon(payload) || 
+                  await sendWithFetch(payload);
+      
+      if (!sent) {
+        console.error('NoxaSense: Failed to send data with all methods');
+        // Put the data back in the queue to try again later
+        batchQueue.push(...payload);
       }
     }
   
@@ -102,5 +122,15 @@
       }
     });
   
-    window.addEventListener('pagehide', sendBatch);
+    window.addEventListener('pagehide', () => {
+      // Use sendBeacon for the final send as it's most reliable for page unload
+      if (batchQueue.length > 0) {
+        const payload = [...batchQueue];
+        batchQueue.length = 0;
+        navigator.sendBeacon(apiUrl, JSON.stringify(payload));
+      }
+    });
+
+    // Also try to send any remaining data periodically
+    setInterval(sendBatch, 5000);
   })();
