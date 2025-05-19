@@ -130,7 +130,8 @@
 
     // Initialize session and load existing batch queue
     const { sessionId, isNewSession } = getOrCreateSessionId();
-    batchQueue.push(...loadBatchQueue());
+    const existingBatch = loadBatchQueue();
+    batchQueue.push(...existingBatch);
   
     // Collect session data if it's a new session
     if (isNewSession) {
