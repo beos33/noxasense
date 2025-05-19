@@ -6,12 +6,25 @@
     const appId = window.NOXASENSE_APP_ID;
     const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
 
+    console.log('NoxaSense: Script starting, checking localStorage...');
+    console.log('NoxaSense: Current localStorage contents:', {
+      batch: localStorage.getItem(BATCH_KEY),
+      session: localStorage.getItem(SESSION_KEY)
+    });
+
     // Initialize batch queue from localStorage
     let batchQueue = [];
     const storedBatch = localStorage.getItem(BATCH_KEY);
     if (storedBatch) {
-      batchQueue = JSON.parse(storedBatch);
-      console.log('NoxaSense: Loaded existing batch queue:', batchQueue);
+      try {
+        batchQueue = JSON.parse(storedBatch);
+        console.log('NoxaSense: Successfully loaded batch queue from localStorage:', batchQueue);
+      } catch (error) {
+        console.error('NoxaSense: Error parsing batch queue from localStorage:', error);
+        localStorage.removeItem(BATCH_KEY);
+      }
+    } else {
+      console.log('NoxaSense: No existing batch queue found in localStorage');
     }
   
     if (!appId) {
@@ -40,13 +53,24 @@
     }
 
     function saveBatchQueue() {
-      localStorage.setItem(BATCH_KEY, JSON.stringify(batchQueue));
-      console.log('NoxaSense: Saved batch queue:', batchQueue);
+      try {
+        const queueToSave = JSON.stringify(batchQueue);
+        console.log('NoxaSense: Saving batch queue to localStorage:', {
+          queueLength: batchQueue.length,
+          queueContent: batchQueue,
+          stringifiedLength: queueToSave.length
+        });
+        localStorage.setItem(BATCH_KEY, queueToSave);
+      } catch (error) {
+        console.error('NoxaSense: Error saving batch queue:', error);
+      }
     }
 
     function collectData(eventType, data) {
       console.log(`NoxaSense: Collecting ${eventType} data:`, data);
+      console.log('NoxaSense: Current batch queue before adding:', batchQueue);
       batchQueue.push({ eventType, data });
+      console.log('NoxaSense: Batch queue after adding:', batchQueue);
       saveBatchQueue();
     }
   
@@ -104,8 +128,12 @@
     }
   
     async function sendBatch() {
-      if (batchQueue.length === 0) return;
+      if (batchQueue.length === 0) {
+        console.log('NoxaSense: No data to send in batch');
+        return;
+      }
   
+      console.log('NoxaSense: Preparing to send batch:', batchQueue);
       // Create a copy of the queue and clear it after
       const payload = [...batchQueue];
       batchQueue = [];
