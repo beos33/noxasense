@@ -8,25 +8,42 @@
 
     // Session ID
     const key = "session_data";
-    const maxAge = 30 * 60 * 1000;
-    const now = Date.now();
+    const maxAge = 30 * 60 * 1000; // 30 minutes in milliseconds
     let data;
-  
-    try {
-      data = JSON.parse(localStorage.getItem(key)) || {};
-    } catch (e) {
-      data = {};
+
+    function createNewSession() {
+        const now = new Date().toISOString();
+        return {
+            session_id: crypto.randomUUID(),
+            application_id: appId,
+            created_at: now,
+            browser: navigator.userAgent,
+            os: navigator.platform,
+            screen_resolution: `${screen.width}x${screen.height}`,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            language: navigator.language,
+            device_type: /Mobi/.test(navigator.userAgent) ? 'mobile' : 'desktop',
+            referrer: document.referrer,
+        };
     }
-  
-    if (!data.session_id || now - data.created_at > maxAge) {
-      data = { 
-        session_id: crypto.randomUUID(),
-        application_id: appId,
-        created_at: now
-      };
-      localStorage.setItem(key, JSON.stringify(data));
+
+    function getOrCreateSession() {
+        try {
+            data = JSON.parse(localStorage.getItem(key));
+            const now = new Date().getTime();
+            if (!data || !data.session_id || now - new Date(data.created_at).getTime() > maxAge) {
+                data = createNewSession();
+                localStorage.setItem(key, JSON.stringify(data));
+            }
+        } catch (e) {
+            data = createNewSession();
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+        return data;
     }
-  
-    window.__SESSION_ID__ = data.session_id;
+
+    // Only run this once to get or create the session
+    const sessionData = getOrCreateSession();
+    window.__SESSION_ID__ = sessionData.session_id;
   
   })();
