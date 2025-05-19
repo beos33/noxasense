@@ -12,7 +12,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const payload = req.body;
+    let payload;
+    try {
+      payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return res.status(400).json({ error: 'Invalid JSON payload' });
+    }
+
     console.log('Received payload:', JSON.stringify(payload, null, 2));
 
     if (!Array.isArray(payload)) {

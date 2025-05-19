@@ -14,7 +14,7 @@
     function sendBatch() {
       if (batchQueue.length === 0) return;
   
-      const payload = JSON.stringify(batchQueue);
+      const payload = batchQueue;
       batchQueue.length = 0;
   
       const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
@@ -23,10 +23,10 @@
         navigator.fetchLater(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: payload,
+          body: JSON.stringify(payload),
         }).catch(error => console.error('NoxaSense: Error sending data:', error));
       } else if ('sendBeacon' in navigator) {
-        const success = navigator.sendBeacon(apiUrl, payload);
+        const success = navigator.sendBeacon(apiUrl, JSON.stringify(payload));
         if (!success) {
           console.error('NoxaSense: Failed to send data via sendBeacon');
         }
@@ -34,7 +34,7 @@
         fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: payload,
+          body: JSON.stringify(payload),
           keepalive: true,
         }).catch(error => console.error('NoxaSense: Error sending data:', error));
       }
