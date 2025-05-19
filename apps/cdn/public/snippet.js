@@ -1,6 +1,12 @@
 (() => {
     const batchQueue = [];
+    const appId = window.NOXASENSE_APP_ID;
   
+    if (!appId) {
+      console.error('NoxaSense: NOXASENSE_APP_ID is not set');
+      return;
+    }
+
     function collectData(eventType, data) {
       batchQueue.push({ eventType, data });
     }
@@ -18,16 +24,19 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: payload,
-        });
+        }).catch(error => console.error('NoxaSense: Error sending data:', error));
       } else if ('sendBeacon' in navigator) {
-        navigator.sendBeacon(apiUrl, payload);
+        const success = navigator.sendBeacon(apiUrl, payload);
+        if (!success) {
+          console.error('NoxaSense: Failed to send data via sendBeacon');
+        }
       } else {
         fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: payload,
           keepalive: true,
-        });
+        }).catch(error => console.error('NoxaSense: Error sending data:', error));
       }
     }
   
@@ -36,6 +45,7 @@
   
     collectData('session', {
       session_id: sessionId,
+      application_id: appId,
       datetime: new Date().toISOString(),
       browser: navigator.userAgent,
       os: navigator.platform,
@@ -49,11 +59,15 @@
     collectData('pageview', {
       pageview_id: pageviewId,
       session_id: sessionId,
+      application_id: appId,
       datetime: new Date().toISOString(),
       domain: location.hostname,
       path: location.pathname,
       parameters: location.search,
     });
+  
+    // Send initial batch
+    sendBatch();
   
     window.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
