@@ -108,9 +108,9 @@
         batchQueue.push(...payload);
       }
     }
-  
+
+    // Initialize session
     const { sessionId, isNewSession } = getOrCreateSessionId();
-    const pageviewId = crypto.randomUUID();
   
     // Collect session data if it's a new session
     if (isNewSession) {
@@ -132,7 +132,7 @@
     // Always collect pageview data
     console.log('NoxaSense: Collecting pageview data');
     collectData('pageview', {
-      pageview_id: pageviewId,
+      pageview_id: crypto.randomUUID(),
       session_id: sessionId,
       datetime: new Date().toISOString(),
       domain: location.hostname,
@@ -157,4 +157,7 @@
         navigator.sendBeacon(apiUrl, JSON.stringify(payload));
       }
     });
+
+    // Send initial batch immediately
+    sendBatch();
   })();
