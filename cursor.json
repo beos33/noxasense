@@ -1,0 +1,11 @@
+{
+    "documentation": {
+      "path": "./docs",
+      "format": "markdown"
+    },
+    "instructions": [
+      "Always reference and adhere to the documentation located in the docs directory.",
+      "Use guidelines and conventions mentioned in the documentation for every code generation or modification task.",
+      "If documentation is missing for a topic or unclear, prompt the developer to clarify or update the documentation before proceeding."
+    ]
+  }
