@@ -11,16 +11,18 @@
       const payload = JSON.stringify(batchQueue);
       batchQueue.length = 0;
   
+      const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
+
       if ('fetchLater' in navigator) {
-        navigator.fetchLater('/api/track', {
+        navigator.fetchLater(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: payload,
         });
       } else if ('sendBeacon' in navigator) {
-        navigator.sendBeacon('/api/track', payload);
+        navigator.sendBeacon(apiUrl, payload);
       } else {
-        fetch('/api/track', {
+        fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: payload,
