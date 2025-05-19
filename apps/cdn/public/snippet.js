@@ -218,10 +218,18 @@
   
     // Handle page unload
     window.addEventListener('beforeunload', () => {
+      console.log('NoxaSense: Page unloading, checking localStorage state...');
+      debugLocalStorage();
+      
       const queue = BatchQueue.get();
       if (queue.length > 0) {
-        console.log('NoxaSense: Page unloading, preparing final batch');
-        navigator.sendBeacon(apiUrl, JSON.stringify(queue));
+        console.log('NoxaSense: Page unloading, preparing final batch:', queue);
+        const success = navigator.sendBeacon(apiUrl, JSON.stringify(queue));
+        console.log('NoxaSense: sendBeacon success:', success);
+        
+        // Check localStorage one more time after sendBeacon
+        console.log('NoxaSense: Final localStorage check after sendBeacon:');
+        debugLocalStorage();
       }
     });
   })();
