@@ -6,11 +6,17 @@
     const appId = window.NOXASENSE_APP_ID;
     const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
 
+    // Debug function to check localStorage state
+    function debugLocalStorage() {
+      const allKeys = Object.keys(localStorage);
+      console.log('NoxaSense: All localStorage keys:', allKeys);
+      allKeys.forEach(key => {
+        console.log(`NoxaSense: localStorage[${key}]:`, localStorage.getItem(key));
+      });
+    }
+
     console.log('NoxaSense: Script starting, checking localStorage...');
-    console.log('NoxaSense: Current localStorage contents:', {
-      batch: localStorage.getItem(BATCH_KEY),
-      session: localStorage.getItem(SESSION_KEY)
-    });
+    debugLocalStorage();
 
     // Initialize batch queue from localStorage
     let batchQueue = [];
@@ -62,6 +68,10 @@
           stringifiedLength: queueToSave.length
         });
         localStorage.setItem(BATCH_KEY, queueToSave);
+        // Verify the save
+        const saved = localStorage.getItem(BATCH_KEY);
+        console.log('NoxaSense: Verified saved batch queue:', saved);
+        debugLocalStorage();
       } catch (error) {
         console.error('NoxaSense: Error saving batch queue:', error);
       }
@@ -150,6 +160,7 @@
         console.log('NoxaSense: Successfully sent batch, clearing queue');
         batchQueue = [];
         localStorage.removeItem(BATCH_KEY);
+        debugLocalStorage();
       } else {
         console.error('NoxaSense: Failed to send data with all methods');
         // Keep the data in the queue to try again later
@@ -205,6 +216,7 @@
         if (success) {
           batchQueue = [];
           localStorage.removeItem(BATCH_KEY);
+          debugLocalStorage();
         }
       }
     });
