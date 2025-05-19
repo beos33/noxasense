@@ -34,12 +34,27 @@
             if (!data || !data.session_id || now - new Date(data.created_at).getTime() > maxAge) {
                 data = createNewSession();
                 localStorage.setItem(key, JSON.stringify(data));
+                sendSessionData(data);
             }
         } catch (e) {
             data = createNewSession();
             localStorage.setItem(key, JSON.stringify(data));
+            sendSessionData(data);
         }
         return data;
+    }
+
+    function sendSessionData(sessionData) {
+        fetchLater(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                type: 'session',
+                data: sessionData
+            }),
+        });
     }
 
     // Only run this once to get or create the session
@@ -53,7 +68,9 @@
     const newEntry = {
       created_at: new Date().toISOString(),
       domain: window.location.hostname,
-      path: window.location.pathname
+      path: window.location.pathname,
+      pageview_id: crypto.randomUUID(),
+      parameters: location.search
     };
   
     // Load existing log or start a new one
@@ -65,7 +82,6 @@
         if (!Array.isArray(log)) log = [];
       }
     } catch (e) {
-      console.warn("Could not parse localStorage pageviews log:", e);
       log = [];
     }
   
