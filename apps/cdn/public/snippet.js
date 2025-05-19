@@ -15,24 +15,67 @@
       });
     }
 
+    // Batch queue management
+    const BatchQueue = {
+      queue: [],
+      
+      load() {
+        try {
+          const stored = localStorage.getItem(BATCH_KEY);
+          if (stored) {
+            this.queue = JSON.parse(stored);
+            console.log('NoxaSense: Loaded batch queue:', this.queue);
+          } else {
+            console.log('NoxaSense: No existing batch queue found');
+            this.queue = [];
+          }
+        } catch (error) {
+          console.error('NoxaSense: Error loading batch queue:', error);
+          this.queue = [];
+        }
+      },
+
+      save() {
+        try {
+          const queueToSave = JSON.stringify(this.queue);
+          console.log('NoxaSense: Saving batch queue:', {
+            queueLength: this.queue.length,
+            queueContent: this.queue,
+            stringifiedLength: queueToSave.length
+          });
+          localStorage.setItem(BATCH_KEY, queueToSave);
+          // Verify the save
+          const saved = localStorage.getItem(BATCH_KEY);
+          console.log('NoxaSense: Verified saved batch queue:', saved);
+          debugLocalStorage();
+        } catch (error) {
+          console.error('NoxaSense: Error saving batch queue:', error);
+        }
+      },
+
+      add(eventType, data) {
+        console.log(`NoxaSense: Adding ${eventType} to queue:`, data);
+        this.queue.push({ eventType, data });
+        this.save();
+      },
+
+      clear() {
+        console.log('NoxaSense: Clearing batch queue');
+        this.queue = [];
+        localStorage.removeItem(BATCH_KEY);
+        debugLocalStorage();
+      },
+
+      get() {
+        return [...this.queue];
+      }
+    };
+
     console.log('NoxaSense: Script starting, checking localStorage...');
     debugLocalStorage();
 
-    // Initialize batch queue from localStorage
-    let batchQueue = [];
-    const storedBatch = localStorage.getItem(BATCH_KEY);
-    if (storedBatch) {
-      try {
-        batchQueue = JSON.parse(storedBatch);
-        console.log('NoxaSense: Successfully loaded batch queue from localStorage:', batchQueue);
-      } catch (error) {
-        console.error('NoxaSense: Error parsing batch queue from localStorage:', error);
-        // Don't remove the item on parse error, just start with empty queue
-        batchQueue = [];
-      }
-    } else {
-      console.log('NoxaSense: No existing batch queue found in localStorage');
-    }
+    // Initialize batch queue
+    BatchQueue.load();
   
     if (!appId) {
       console.error('NoxaSense: NOXASENSE_APP_ID is not set');
@@ -57,32 +100,6 @@
       }));
       console.log('NoxaSense: Created new session:', newSessionId);
       return { sessionId: newSessionId, isNewSession: true };
-    }
-
-    function saveBatchQueue() {
-      try {
-        const queueToSave = JSON.stringify(batchQueue);
-        console.log('NoxaSense: Saving batch queue to localStorage:', {
-          queueLength: batchQueue.length,
-          queueContent: batchQueue,
-          stringifiedLength: queueToSave.length
-        });
-        localStorage.setItem(BATCH_KEY, queueToSave);
-        // Verify the save
-        const saved = localStorage.getItem(BATCH_KEY);
-        console.log('NoxaSense: Verified saved batch queue:', saved);
-        debugLocalStorage();
-      } catch (error) {
-        console.error('NoxaSense: Error saving batch queue:', error);
-      }
-    }
-
-    function collectData(eventType, data) {
-      console.log(`NoxaSense: Collecting ${eventType} data:`, data);
-      console.log('NoxaSense: Current batch queue before adding:', batchQueue);
-      batchQueue.push({ eventType, data });
-      console.log('NoxaSense: Batch queue after adding:', batchQueue);
-      saveBatchQueue();
     }
   
     async function sendWithFetchLater(payload) {
@@ -139,32 +156,24 @@
     }
   
     async function sendBatch() {
-      if (batchQueue.length === 0) {
+      const queue = BatchQueue.get();
+      if (queue.length === 0) {
         console.log('NoxaSense: No data to send in batch');
         return;
       }
   
-      console.log('NoxaSense: Preparing to send batch:', batchQueue);
-      // Create a copy of the queue
-      const payload = [...batchQueue];
-  
-      console.log('NoxaSense: Sending batch:', payload);
+      console.log('NoxaSense: Preparing to send batch:', queue);
   
       // Try each method in order until one succeeds
-      const sent = await sendWithFetchLater(payload) || 
-                  await sendWithBeacon(payload) || 
-                  await sendWithFetch(payload);
+      const sent = await sendWithFetchLater(queue) || 
+                  await sendWithBeacon(queue) || 
+                  await sendWithFetch(queue);
       
       if (sent) {
-        // Only clear the queue and localStorage if we successfully sent the data
         console.log('NoxaSense: Successfully sent batch, clearing queue');
-        batchQueue = [];
-        localStorage.removeItem(BATCH_KEY);
-        debugLocalStorage();
+        BatchQueue.clear();
       } else {
         console.error('NoxaSense: Failed to send data with all methods');
-        // Keep the data in the queue to try again later
-        saveBatchQueue();
       }
     }
 
@@ -174,7 +183,7 @@
     // Collect session data if it's a new session
     if (isNewSession) {
       console.log('NoxaSense: Collecting new session data');
-      collectData('session', {
+      BatchQueue.add('session', {
         session_id: sessionId,
         application_id: appId,
         datetime: new Date().toISOString(),
@@ -190,7 +199,7 @@
   
     // Always collect pageview data
     console.log('NoxaSense: Collecting pageview data');
-    collectData('pageview', {
+    BatchQueue.add('pageview', {
       pageview_id: crypto.randomUUID(),
       session_id: sessionId,
       datetime: new Date().toISOString(),
@@ -209,11 +218,10 @@
   
     // Handle page unload
     window.addEventListener('beforeunload', () => {
-      if (batchQueue.length > 0) {
+      const queue = BatchQueue.get();
+      if (queue.length > 0) {
         console.log('NoxaSense: Page unloading, preparing final batch');
-        const payload = [...batchQueue];
-        // Don't clear the queue here, let the next page load handle it
-        navigator.sendBeacon(apiUrl, JSON.stringify(payload));
+        navigator.sendBeacon(apiUrl, JSON.stringify(queue));
       }
     });
   })();
