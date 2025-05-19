@@ -4,6 +4,7 @@
     const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
     const SESSION_KEY = 'noxasense_session';
     const SESSION_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+    const BATCH_KEY = 'noxasense_batch';
   
     if (!appId) {
       console.error('NoxaSense: NOXASENSE_APP_ID is not set');
@@ -30,9 +31,25 @@
       return { sessionId: newSessionId, isNewSession: true };
     }
 
+    function loadBatchQueue() {
+      const stored = localStorage.getItem(BATCH_KEY);
+      if (stored) {
+        const queue = JSON.parse(stored);
+        console.log('NoxaSense: Loaded batch queue:', queue);
+        return queue;
+      }
+      return [];
+    }
+
+    function saveBatchQueue() {
+      localStorage.setItem(BATCH_KEY, JSON.stringify(batchQueue));
+      console.log('NoxaSense: Saved batch queue:', batchQueue);
+    }
+
     function collectData(eventType, data) {
       console.log(`NoxaSense: Collecting ${eventType} data:`, data);
       batchQueue.push({ eventType, data });
+      saveBatchQueue();
     }
   
     async function sendWithFetchLater(payload) {
@@ -94,6 +111,7 @@
       // Create a copy of the queue and clear it after
       const payload = [...batchQueue];
       batchQueue.length = 0;
+      localStorage.removeItem(BATCH_KEY);
   
       console.log('NoxaSense: Sending batch:', payload);
   
@@ -106,11 +124,13 @@
         console.error('NoxaSense: Failed to send data with all methods');
         // Put the data back in the queue to try again later
         batchQueue.push(...payload);
+        saveBatchQueue();
       }
     }
 
-    // Initialize session
+    // Initialize session and load existing batch queue
     const { sessionId, isNewSession } = getOrCreateSessionId();
+    batchQueue.push(...loadBatchQueue());
   
     // Collect session data if it's a new session
     if (isNewSession) {
@@ -154,10 +174,8 @@
         console.log('NoxaSense: Page unloading, sending final batch');
         const payload = [...batchQueue];
         batchQueue.length = 0;
+        localStorage.removeItem(BATCH_KEY);
         navigator.sendBeacon(apiUrl, JSON.stringify(payload));
       }
     });
-
-    // Send initial batch immediately
-    sendBatch();
   })();
