@@ -21,7 +21,8 @@
         console.log('NoxaSense: Successfully loaded batch queue from localStorage:', batchQueue);
       } catch (error) {
         console.error('NoxaSense: Error parsing batch queue from localStorage:', error);
-        localStorage.removeItem(BATCH_KEY);
+        // Don't remove the item on parse error, just start with empty queue
+        batchQueue = [];
       }
     } else {
       console.log('NoxaSense: No existing batch queue found in localStorage');
@@ -134,10 +135,8 @@
       }
   
       console.log('NoxaSense: Preparing to send batch:', batchQueue);
-      // Create a copy of the queue and clear it after
+      // Create a copy of the queue
       const payload = [...batchQueue];
-      batchQueue = [];
-      localStorage.removeItem(BATCH_KEY);
   
       console.log('NoxaSense: Sending batch:', payload);
   
@@ -146,10 +145,14 @@
                   await sendWithBeacon(payload) || 
                   await sendWithFetch(payload);
       
-      if (!sent) {
+      if (sent) {
+        // Only clear the queue and localStorage if we successfully sent the data
+        console.log('NoxaSense: Successfully sent batch, clearing queue');
+        batchQueue = [];
+        localStorage.removeItem(BATCH_KEY);
+      } else {
         console.error('NoxaSense: Failed to send data with all methods');
-        // Put the data back in the queue to try again later
-        batchQueue = [...payload];
+        // Keep the data in the queue to try again later
         saveBatchQueue();
       }
     }
@@ -198,9 +201,11 @@
       if (batchQueue.length > 0) {
         console.log('NoxaSense: Page unloading, sending final batch');
         const payload = [...batchQueue];
-        batchQueue = [];
-        localStorage.removeItem(BATCH_KEY);
-        navigator.sendBeacon(apiUrl, JSON.stringify(payload));
+        const success = navigator.sendBeacon(apiUrl, JSON.stringify(payload));
+        if (success) {
+          batchQueue = [];
+          localStorage.removeItem(BATCH_KEY);
+        }
       }
     });
   })();
