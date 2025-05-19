@@ -2,10 +2,30 @@
     const batchQueue = [];
     const appId = window.NOXASENSE_APP_ID;
     const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
+    const SESSION_KEY = 'noxasense_session';
+    const SESSION_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
   
     if (!appId) {
       console.error('NoxaSense: NOXASENSE_APP_ID is not set');
       return;
+    }
+
+    function getOrCreateSessionId() {
+      const stored = localStorage.getItem(SESSION_KEY);
+      if (stored) {
+        const { sessionId, timestamp } = JSON.parse(stored);
+        // Check if session is still valid (within 30 minutes)
+        if (Date.now() - timestamp < SESSION_DURATION) {
+          return sessionId;
+        }
+      }
+      // Create new session if none exists or if expired
+      const newSessionId = crypto.randomUUID();
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        sessionId: newSessionId,
+        timestamp: Date.now()
+      }));
+      return newSessionId;
     }
 
     function collectData(eventType, data) {
@@ -84,36 +104,34 @@
       }
     }
   
-    const sessionId = crypto.randomUUID();
+    const sessionId = getOrCreateSessionId();
     const pageviewId = crypto.randomUUID();
   
-    // Collect initial session data
-    collectData('session', {
-      session_id: sessionId,
-      application_id: appId,
-      datetime: new Date().toISOString(),
-      browser: navigator.userAgent,
-      os: navigator.platform,
-      screen_resolution: `${screen.width}x${screen.height}`,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      language: navigator.language,
-      device_type: /Mobi/.test(navigator.userAgent) ? 'mobile' : 'desktop',
-      referrer: document.referrer,
-    });
+    // Only collect session data if it's a new session
+    if (!localStorage.getItem(SESSION_KEY)) {
+      collectData('session', {
+        session_id: sessionId,
+        application_id: appId,
+        datetime: new Date().toISOString(),
+        browser: navigator.userAgent,
+        os: navigator.platform,
+        screen_resolution: `${screen.width}x${screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: navigator.language,
+        device_type: /Mobi/.test(navigator.userAgent) ? 'mobile' : 'desktop',
+        referrer: document.referrer,
+      });
+    }
   
-    // Collect initial pageview data
+    // Always collect pageview data
     collectData('pageview', {
       pageview_id: pageviewId,
       session_id: sessionId,
-      application_id: appId,
       datetime: new Date().toISOString(),
       domain: location.hostname,
       path: location.pathname,
       parameters: location.search,
     });
-  
-    // Send initial batch after a short delay to ensure all data is collected
-    setTimeout(sendBatch, 100);
   
     // Send data when page is hidden or unloaded
     window.addEventListener('visibilitychange', () => {
