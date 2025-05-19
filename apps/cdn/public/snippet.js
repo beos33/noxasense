@@ -16,7 +16,7 @@
         const { sessionId, timestamp } = JSON.parse(stored);
         // Check if session is still valid (within 30 minutes)
         if (Date.now() - timestamp < SESSION_DURATION) {
-          return sessionId;
+          return { sessionId, isNewSession: false };
         }
       }
       // Create new session if none exists or if expired
@@ -25,7 +25,7 @@
         sessionId: newSessionId,
         timestamp: Date.now()
       }));
-      return newSessionId;
+      return { sessionId: newSessionId, isNewSession: true };
     }
 
     function collectData(eventType, data) {
@@ -104,11 +104,11 @@
       }
     }
   
-    const sessionId = getOrCreateSessionId();
+    const { sessionId, isNewSession } = getOrCreateSessionId();
     const pageviewId = crypto.randomUUID();
   
-    // Only collect session data if it's a new session
-    if (!localStorage.getItem(SESSION_KEY)) {
+    // Collect session data if it's a new session
+    if (isNewSession) {
       collectData('session', {
         session_id: sessionId,
         application_id: appId,
@@ -148,7 +148,4 @@
         navigator.sendBeacon(apiUrl, JSON.stringify(payload));
       }
     });
-
-    // Also try to send any remaining data periodically
-    setInterval(sendBatch, 5000);
   })();
