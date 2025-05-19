@@ -207,17 +207,13 @@
       }
     });
   
-    window.addEventListener('pagehide', () => {
-      // Use sendBeacon for the final send as it's most reliable for page unload
+    // Handle page unload
+    window.addEventListener('beforeunload', () => {
       if (batchQueue.length > 0) {
-        console.log('NoxaSense: Page unloading, sending final batch');
+        console.log('NoxaSense: Page unloading, preparing final batch');
         const payload = [...batchQueue];
-        const success = navigator.sendBeacon(apiUrl, JSON.stringify(payload));
-        if (success) {
-          batchQueue = [];
-          localStorage.removeItem(BATCH_KEY);
-          debugLocalStorage();
-        }
+        // Don't clear the queue here, let the next page load handle it
+        navigator.sendBeacon(apiUrl, JSON.stringify(payload));
       }
     });
   })();
