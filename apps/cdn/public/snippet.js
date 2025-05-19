@@ -6,7 +6,7 @@
     const appId = window.NOXASENSE_APP_ID;
     const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
 
-    // Session ID
+    // Sessions
     const key = "session_data";
     const maxAge = 30 * 60 * 1000; // 30 minutes in milliseconds
     let data;
@@ -45,5 +45,32 @@
     // Only run this once to get or create the session
     const sessionData = getOrCreateSession();
     window.__SESSION_ID__ = sessionData.session_id;
+
+    // Pageviews
+    const storageKey = "pageview_data";
+
+    // Create a new pageview entry
+    const newEntry = {
+      created_at: new Date().toISOString(),
+      domain: window.location.hostname,
+      path: window.location.pathname
+    };
+  
+    // Load existing log or start a new one
+    let log = [];
+    try {
+      const existing = localStorage.getItem(storageKey);
+      if (existing) {
+        log = JSON.parse(existing);
+        if (!Array.isArray(log)) log = [];
+      }
+    } catch (e) {
+      console.warn("Could not parse localStorage pageviews log:", e);
+      log = [];
+    }
+  
+    // Add the new entry and save back to localStorage
+    log.push(newEntry);
+    localStorage.setItem(storageKey, JSON.stringify(log));
   
   })();
