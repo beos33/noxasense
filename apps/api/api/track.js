@@ -32,55 +32,37 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Log raw body for debugging
-    console.log('Raw request body:', req.body);
-    
-    let payload;
-    try {
-      payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      console.log('Parsed payload:', payload);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      return res.status(400).json({ error: 'Invalid JSON payload', details: parseError.message });
-    }
+    const payload = JSON.parse(req.body);
 
     // Validate payload structure
     if (!payload.session || !Array.isArray(payload.pageviews)) {
-      console.error('Invalid payload structure:', payload);
-      return res.status(400).json({ 
-        error: 'Invalid payload structure',
-        expected: { session: 'object', pageviews: 'array' },
-        received: {
-          session: typeof payload.session,
-          pageviews: Array.isArray(payload.pageviews) ? 'array' : typeof payload.pageviews
-        }
-      });
+      return res.status(400).json({ error: 'Invalid payload structure' });
     }
 
-    // Log session data
-    console.log('Attempting to insert session:', payload.session);
-
-    // Insert session data
-    const { error: sessionError } = await supabase
+    // Check if session already exists
+    const { data: existingSession } = await supabase
       .from('sessions')
-      .upsert(payload.session, {
-        onConflict: 'session_id',
-        ignoreDuplicates: false
-      });
+      .select('session_id')
+      .eq('session_id', payload.session.session_id)
+      .single();
 
-    if (sessionError) {
-      console.error('Session insert error:', sessionError);
-      return res.status(500).json({ 
-        error: 'Failed to insert session data',
-        details: sessionError.message,
-        code: sessionError.code
-      });
+    // Only insert session if it doesn't exist
+    if (!existingSession) {
+      const { error: sessionError } = await supabase
+        .from('sessions')
+        .insert(payload.session);
+
+      if (sessionError) {
+        console.error('Session insert error:', sessionError);
+        return res.status(500).json({ 
+          error: 'Failed to insert session data',
+          details: sessionError.message
+        });
+      }
     }
 
     // Insert pageview data if any
     if (payload.pageviews.length > 0) {
-      console.log('Attempting to insert pageviews:', payload.pageviews);
-      
       const { error: pageviewError } = await supabase
         .from('pageviews')
         .insert(payload.pageviews);
@@ -89,20 +71,17 @@ export default async function handler(req, res) {
         console.error('Pageview insert error:', pageviewError);
         return res.status(500).json({ 
           error: 'Failed to insert pageview data',
-          details: pageviewError.message,
-          code: pageviewError.code
+          details: pageviewError.message
         });
       }
     }
 
-    console.log('Successfully processed request');
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('Unhandled error:', error);
     return res.status(500).json({ 
       error: 'Internal server error',
-      details: error.message,
-      type: error.constructor.name
+      details: error.message
     });
   }
 }
