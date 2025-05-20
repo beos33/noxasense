@@ -69,10 +69,31 @@
 
   // Function to send data using sendBeacon
   function sendBeacon(endpoint, data) {
-    const blob = new Blob([JSON.stringify(data)], { 
-      type: 'application/json; charset=UTF-8'
-    });
-    return navigator.sendBeacon(endpoint, blob);
+    try {
+      const blob = new Blob([JSON.stringify(data)], { 
+        type: 'application/json; charset=UTF-8'
+      });
+      const success = navigator.sendBeacon(endpoint, blob);
+      if (!success) {
+        console.warn('Failed to send data via sendBeacon, falling back to fetch');
+        // Fallback to fetch if sendBeacon fails
+        fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+          credentials: 'omit',
+          keepalive: true
+        }).catch(error => {
+          console.warn('Fallback fetch also failed:', error);
+        });
+      }
+      return success;
+    } catch (error) {
+      console.warn('Error in sendBeacon:', error);
+      return false;
+    }
   }
 
   // Function to send session data
@@ -86,7 +107,7 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(sessionData),
-          credentials: 'omit' // Changed from 'include' to 'omit' since we're using wildcard CORS
+          credentials: 'omit'
         });
         
         if (response.ok) {
@@ -102,14 +123,10 @@
   // Function to send pageview data
   function sendPageviewData() {
     // Use sendBeacon for critical pageview data
-    const success = sendBeacon(`${apiUrl}/pageview`, {
+    sendBeacon(`${apiUrl}/pageview`, {
       pageviews: [pageviewData],
       application_id: appId
     });
-    
-    if (!success) {
-      console.warn('Failed to send pageview data via sendBeacon');
-    }
   }
 
   // Update helpers for metrics

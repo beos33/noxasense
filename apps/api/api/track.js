@@ -9,20 +9,19 @@ const supabase = createClient(
 // CORS headers helper
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Max-Age': '86400',
+  'Access-Control-Max-Age': '86400'
 };
 
 export default async function handler(req, res) {
+  // Set CORS headers for all responses
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    res.setHeader(key, value);
+  });
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    const origin = req.headers.origin;
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
     return res.status(204).end();
   }
 
@@ -34,25 +33,22 @@ export default async function handler(req, res) {
   try {
     let payload;
     try {
+      // Handle both string and object payloads
       payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError);
       return res.status(400).json({ error: 'Invalid JSON payload' });
     }
 
-    console.log('Received payload:', JSON.stringify(payload, null, 2));
-
-    if (!Array.isArray(payload)) {
-      console.error('Invalid payload format - not an array:', payload);
-      return res.status(400).json({ error: 'Invalid payload format - must be an array' });
-    }
-
-    if (payload.length === 0) {
+    // Handle both array and single object payloads
+    const items = Array.isArray(payload) ? payload : [payload];
+    
+    if (items.length === 0) {
       console.warn('Empty payload received');
       return res.status(200).json({ status: 'ok', message: 'Empty payload' });
     }
 
-    for (const item of payload) {
+    for (const item of items) {
       if (!item.eventType || !item.data) {
         console.error('Invalid item format:', item);
         continue;
