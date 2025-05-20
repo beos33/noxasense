@@ -185,7 +185,7 @@
         })
         .then(response => {
           if (response.ok) {
-            localStorage.removeItem(storageKey);
+            //localStorage.removeItem(storageKey);
           }
         })
         .catch(console.warn);
