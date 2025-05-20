@@ -40,10 +40,13 @@ module.exports = async (req, res) => {
         return;
       }
 
-      // Insert into Supabase
+      // Upsert into Supabase
       const { error } = await supabase
         .from('pageviews')
-        .insert([data]);
+        .upsert([data], {
+          onConflict: 'pageview_id',
+          ignoreDuplicates: false
+        });
 
       if (error) {
         console.error('Supabase error:', error);
