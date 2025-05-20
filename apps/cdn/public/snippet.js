@@ -59,7 +59,7 @@
     domain: window.location.hostname,
     path: window.location.pathname,
     parameters: location.search,
-    session_id: sessionId,
+    session_id: sessionData.session_id,
     cls: undefined,
     lcp: undefined,
     fid: undefined,
@@ -107,16 +107,17 @@
   webVitals.onTTFB(metric => updatePageviewMetric('ttfb', metric.value));
   webVitals.onFCP(metric => updatePageviewMetric('fcp', metric.value));
   webVitals.onINP(metric => updatePageviewMetric('inp', metric.value));
-  webVitals.onLoAF(metric => updatePageviewMetric('loaf', metric.value));
 
-  // Additional DOM timing metrics from performance.timing
+  // Additional DOM timing metrics from PerformanceNavigationTiming
   window.addEventListener("load", function () {
     try {
-      const t = performance.timing;
-      updatePageviewMetric('domInteractive', t.domInteractive - t.navigationStart);
-      updatePageviewMetric('domContentLoaded', t.domContentLoadedEventEnd - t.navigationStart);
-      updatePageviewMetric('domComplete', t.domComplete - t.navigationStart);
-      updatePageviewMetric('loadTime', t.loadEventEnd - t.navigationStart);
+      const nav = performance.getEntriesByType('navigation')[0];
+      if (nav) {
+        updatePageviewMetric('domInteractive', nav.domInteractive);
+        updatePageviewMetric('domContentLoaded', nav.domContentLoadedEventEnd);
+        updatePageviewMetric('domComplete', nav.domComplete);
+        updatePageviewMetric('loadTime', nav.loadEventEnd);
+      }
     } catch (e) {
       console.warn("Failed to update DOM timing metrics", e);
     }
