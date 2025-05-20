@@ -62,6 +62,7 @@
 
   // Pageview tracking
   const storageKey = "pageview_data";           // LocalStorage key for pageview data
+  let latestPageviewId;                         // ID of the most recently created pageview
 
   /**
    * Creates a new pageview entry with current page information
@@ -84,6 +85,9 @@
     domComplete: undefined,                    // DOM Complete timing
     loadTime: undefined                        // Total page load time
   };
+
+  // Store the latest pageview ID
+  latestPageviewId = newEntry.pageview_id;
 
   // Load existing pageview log or initialize new one
   let log = [];
