@@ -139,7 +139,8 @@
         credentials: 'omit',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        cache: 'default'
       }).then(() => true).catch(() => false);
     } catch (error) {
       return false;
