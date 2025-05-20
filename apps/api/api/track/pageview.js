@@ -7,7 +7,7 @@ const supabase = createClient(
 );
 
 module.exports = async function handler(req, res) {
-  // Set CORS headers for all responses
+  // Always set CORS headers first
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -24,23 +24,29 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    
-    // Extract pageview data
-    const { eventType, data: pageviewData } = payload;
+    let payload;
+    try {
+      payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    } catch (error) {
+      console.error('Failed to parse request body:', error);
+      return res.status(400).json({ error: 'Invalid JSON payload' });
+    }
 
-    if (!pageviewData) {
-      return res.status(400).json({ error: 'Invalid pageview data format' });
+    // Handle both array and single object formats
+    const pageviews = Array.isArray(payload.pageviews) ? payload.pageviews : [payload.pageviews || payload];
+
+    if (pageviews.length === 0) {
+      return res.status(400).json({ error: 'No pageview data provided' });
     }
 
     // Insert into Supabase
-    const { error } = await supabase.from('pageviews').insert([pageviewData]);
+    const { error } = await supabase.from('pageviews').insert(pageviews);
     if (error) {
-      console.error('Error inserting pageview:', error);
+      console.error('Error inserting pageviews:', error);
       return res.status(500).json({ error: 'Failed to insert pageview data' });
     }
 
-    console.log('Successfully inserted pageview:', pageviewData.pageview_id);
+    console.log('Successfully inserted pageviews:', pageviews.length);
     return res.status(200).json({ status: 'ok' });
   } catch (error) {
     console.error('API error in /track/pageview:', error);

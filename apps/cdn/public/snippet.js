@@ -121,12 +121,25 @@
   function sendPageviewData() {
     // Use sendBeacon for critical pageview data
     const success = sendBeacon(`${apiUrl}/pageview`, {
-      eventType: 'pageview',
-      data: pageviewData
+      pageviews: [pageviewData]
     });
 
     if (!success) {
-      console.warn('Failed to send pageview data via sendBeacon');
+      // Fallback to fetch if sendBeacon fails
+      fetch(`${apiUrl}/pageview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pageviews: [pageviewData]
+        }),
+        mode: 'cors',
+        credentials: 'omit',
+        keepalive: true
+      }).catch(error => {
+        console.warn('Failed to send pageview data:', error);
+      });
     }
   }
 
