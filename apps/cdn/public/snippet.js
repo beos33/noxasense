@@ -149,9 +149,10 @@
 
   /**
    * Sends RUM (Real User Monitoring) data to the server
-   * Sends all available pageviews and clears the storage after sending
+   * @param {Object} options - Options for sending data
+   * @param {boolean} options.force - Force send regardless of pageview count
    */
-  function sendRUMData() {
+  function sendRUMData(options = {}) {
     try {
       const session = JSON.parse(localStorage.getItem(key));
       const pageviews = JSON.parse(localStorage.getItem(storageKey));
@@ -165,10 +166,15 @@
 
       // Use sendBeacon for guaranteed delivery during page unload
       if (navigator.sendBeacon) {
-        navigator.sendBeacon(
+        const success = navigator.sendBeacon(
           'https://noxasense-api-v4.vercel.app/api/track',
           new Blob([payload], { type: 'application/json' })
         );
+        
+        // Only clear data if send was successful
+        if (success) {
+          localStorage.removeItem(storageKey);
+        }
       } else {
         // Fallback to fetch with keepalive for older browsers
         fetch('https://noxasense-api-v4.vercel.app/api/track', {
@@ -176,11 +182,14 @@
           headers: { 'Content-Type': 'application/json' },
           body: payload,
           keepalive: true
-        }).catch(console.warn);
+        })
+        .then(response => {
+          if (response.ok) {
+            localStorage.removeItem(storageKey);
+          }
+        })
+        .catch(console.warn);
       }
-
-      // Clear the pageview data after successful send
-      localStorage.removeItem(storageKey);
     } catch (e) {
       console.warn('Failed to send RUM data:', e);
     }
@@ -202,7 +211,7 @@
   }
 
   // Send data when user leaves the page
-  window.addEventListener('pagehide', sendRUMData);
+  window.addEventListener('pagehide', () => sendRUMData({ force: true }));
 
   // Check if we should send after adding new pageview
   checkAndSend();
