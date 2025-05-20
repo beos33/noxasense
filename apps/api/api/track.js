@@ -36,30 +36,8 @@ export default async function handler(req, res) {
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
     // Validate payload structure
-    if (!payload.session || !Array.isArray(payload.pageviews)) {
+    if (!Array.isArray(payload.pageviews)) {
       return res.status(400).json({ error: 'Invalid payload structure' });
-    }
-
-    // Check if session already exists
-    const { data: existingSession } = await supabase
-      .from('sessions')
-      .select('session_id')
-      .eq('session_id', payload.session.session_id)
-      .single();
-
-    // Only insert session if it doesn't exist
-    if (!existingSession) {
-      const { error: sessionError } = await supabase
-        .from('sessions')
-        .insert(payload.session);
-
-      if (sessionError) {
-        console.error('Session insert error:', sessionError);
-        return res.status(500).json({ 
-          error: 'Failed to insert session data',
-          details: sessionError.message
-        });
-      }
     }
 
     // Insert pageview data if any

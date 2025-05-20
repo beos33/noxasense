@@ -5,61 +5,78 @@
   // Initialize constants
   const appId = window.NOXASENSE_APP_ID;
   const apiUrl = 'https://noxasense-api-v4.vercel.app/api/track';
-
-  // Sessions
   const SESSION_KEY = "noxasense_session";
   const SESSION_MAX_AGE = 30 * 60 * 1000; // 30 minutes in milliseconds
-  let sessionData;
 
-  function createNewSession() {
-    return {
-      session_id: crypto.randomUUID(),
-      application_id: appId,
-      created_at: new Date().toISOString(),
-      browser: navigator.userAgent,
-      os: navigator.platform,
-      screen_resolution: `${screen.width}x${screen.height}`,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      language: navigator.language,
-      device_type: /Mobi/.test(navigator.userAgent) ? 'mobile' : 'desktop',
-      referrer: document.referrer,
-      _sent: false
-    };
-  }
-
-  function getOrCreateSession() {
-    try {
-      const stored = localStorage.getItem(SESSION_KEY);
-      if (stored) {
-        const data = JSON.parse(stored);
-        const now = new Date().getTime();
-        const sessionAge = now - new Date(data.created_at).getTime();
-        
-        // Check if session is valid and not expired
-        if (data && data.session_id && data.application_id && sessionAge < SESSION_MAX_AGE) {
-          // Ensure _sent property is preserved
-          data._sent = data._sent || false;
-          return data;
-        }
-      }
-    } catch (e) {
-      console.error('Error reading session:', e);
+  // Session management
+  class SessionManager {
+    constructor() {
+      this.session = this.getOrCreateSession();
     }
 
-    // Create new session if none exists or is invalid/expired
-    const newSession = createNewSession();
-    localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
-    return newSession;
+    createNewSession() {
+      return {
+        session_id: crypto.randomUUID(),
+        application_id: appId,
+        created_at: new Date().toISOString(),
+        browser: navigator.userAgent,
+        os: navigator.platform,
+        screen_resolution: `${screen.width}x${screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: navigator.language,
+        device_type: /Mobi/.test(navigator.userAgent) ? 'mobile' : 'desktop',
+        referrer: document.referrer
+      };
+    }
+
+    isSessionValid(session) {
+      if (!session || !session.session_id || !session.application_id || !session.created_at) {
+        return false;
+      }
+      const now = new Date().getTime();
+      const sessionAge = now - new Date(session.created_at).getTime();
+      return sessionAge < SESSION_MAX_AGE;
+    }
+
+    getOrCreateSession() {
+      try {
+        const stored = localStorage.getItem(SESSION_KEY);
+        if (stored) {
+          const session = JSON.parse(stored);
+          if (this.isSessionValid(session)) {
+            return session;
+          }
+        }
+      } catch (e) {
+        console.error('Error reading session:', e);
+      }
+
+      const newSession = this.createNewSession();
+      this.saveSession(newSession);
+      return newSession;
+    }
+
+    saveSession(session) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    }
+
+    getSessionId() {
+      return this.session.session_id;
+    }
+
+    getSession() {
+      return this.session;
+    }
   }
 
-  // Initialize session
-  sessionData = getOrCreateSession();
-  window.__SESSION_ID__ = sessionData.session_id;
+  // Initialize session manager
+  const sessionManager = new SessionManager();
+  window.__SESSION_ID__ = sessionManager.getSessionId();
 
   // Create a new pageview entry
   const pageviewData = {
     pageview_id: crypto.randomUUID(),
-    session_id: sessionData.session_id,
+    session_id: sessionManager.getSessionId(),
     created_at: new Date().toISOString(),
     domain: window.location.hostname,
     path: window.location.pathname,
@@ -78,24 +95,12 @@
     tti: undefined
   };
 
+  // Keep track of sent pageviews
+  const sentPageviews = new Set();
+
   // Function to send data using fetch
   function sendBeacon(endpoint, data) {
     try {
-      // Validate data structure before sending
-      if (!data.session || !Array.isArray(data.pageviews)) {
-        console.error('Invalid data structure:', data);
-        return false;
-      }
-
-      // Ensure all required fields are present
-      const requiredSessionFields = ['session_id', 'application_id', 'created_at'];
-      const missingFields = requiredSessionFields.filter(field => !data.session[field]);
-      if (missingFields.length > 0) {
-        console.error('Missing required session fields:', missingFields);
-        return false;
-      }
-
-      // Create a no-credentials fetch request
       return fetch(endpoint, {
         method: 'POST',
         body: JSON.stringify(data),
@@ -107,65 +112,18 @@
         }
       }).then(() => true).catch(() => false);
     } catch (error) {
-      console.error('Error sending data:', error);
       return false;
     }
   }
 
-  // Function to send session data with retry
-  function sendSessionData() {
-    // Check if we already have a session in localStorage
-    const storedSession = localStorage.getItem(SESSION_KEY);
-    if (storedSession) {
-      const parsedSession = JSON.parse(storedSession);
-      if (parsedSession._sent) {
-        // If session exists and was already sent, update our current sessionData
-        sessionData._sent = true;
-        return;
-      }
-    }
-
-    // Only send if session hasn't been sent before
-    if (!sessionData._sent) {
-      // Create a clean copy of session data without local tracking properties
-      const cleanSessionData = { ...sessionData };
-      delete cleanSessionData._sent;
-
-      const payload = {
-        session: cleanSessionData,
-        pageviews: []
-      };
-      
-      const sendWithRetry = (retries = 2) => {
-        const success = sendBeacon(apiUrl, payload);
-        if (success) {
-          sessionData._sent = true;
-          localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
-        } else if (retries > 0) {
-          setTimeout(() => sendWithRetry(retries - 1), 1000);
-        }
-      };
-      
-      sendWithRetry();
-    }
-  }
-
-  // Keep track of sent pageviews
-  const sentPageviews = new Set();
-
-  // Function to send pageview data with retry
+  // Function to send pageview data
   function sendPageviewData() {
     // Only send if this pageview hasn't been sent before
     if (sentPageviews.has(pageviewData.pageview_id)) {
       return;
     }
 
-    // Create a clean copy of session data without local tracking properties
-    const cleanSessionData = { ...sessionData };
-    delete cleanSessionData._sent;
-
     const payload = {
-      session: cleanSessionData,
       pageviews: [pageviewData]
     };
     
@@ -183,7 +141,6 @@
 
   // Update helpers for metrics
   function updatePageviewMetric(field, value) {
-    // Convert camelCase to snake_case for database compatibility
     const snakeField = field.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
     pageviewData[snakeField] = value;
   }
@@ -196,7 +153,7 @@
   webVitals.onFCP(metric => updatePageviewMetric('fcp', metric.value));
   webVitals.onINP(metric => updatePageviewMetric('inp', metric.value));
 
-  // Additional DOM timing metrics from PerformanceNavigationTiming
+  // Additional DOM timing metrics
   window.addEventListener("load", function () {
     try {
       const nav = performance.getEntriesByType('navigation')[0];
@@ -210,9 +167,6 @@
       console.warn("Failed to update DOM timing metrics", e);
     }
   });
-
-  // Send session data after page is fully loaded
-  window.addEventListener("load", sendSessionData);
 
   // Send pageview data as late as possible
   window.addEventListener('pagehide', sendPageviewData);
