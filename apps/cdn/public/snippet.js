@@ -77,12 +77,10 @@
       
       // Try sendBeacon first
       if (navigator.sendBeacon) {
-        console.log('Using sendBeacon to send data');
         return navigator.sendBeacon(endpoint, blob);
       }
       
       // Fallback to fetch with keepalive
-      console.log('Using fetch fallback to send data');
       return fetch(endpoint, {
         method: 'POST',
         body: blob,
@@ -94,14 +92,12 @@
           'Accept': 'application/json'
         }
       }).then(response => {
-        console.log('Fetch response:', response.status);
-        return response.ok;
-      }).catch(error => {
-        console.error('Fetch error:', error);
-        return false;
-      });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return true;
+      }).catch(() => false);
     } catch (error) {
-      console.error('Error in sendBeacon:', error);
       return false;
     }
   }
@@ -110,24 +106,18 @@
   function sendSessionData() {
     // Only send if we haven't sent this session before
     if (!sessionData.sent) {
-      console.log('Sending session data');
       const payload = {
         session: sessionData,
         pageviews: []
       };
       
       const sendWithRetry = (retries = 2) => {
-        console.log(`Attempting to send data (${retries} retries left)`);
         const success = sendBeacon(apiUrl, payload);
         if (success) {
-          console.log('Successfully sent session data');
           sessionData.sent = true;
           localStorage.setItem(key, JSON.stringify(sessionData));
         } else if (retries > 0) {
-          console.log(`Retrying in 1 second...`);
           setTimeout(() => sendWithRetry(retries - 1), 1000);
-        } else {
-          console.error('Failed to send session data after retries');
         }
       };
       
@@ -137,22 +127,15 @@
 
   // Function to send pageview data with retry
   function sendPageviewData() {
-    console.log('Sending pageview data');
     const payload = {
       session: sessionData,
       pageviews: [pageviewData]
     };
     
     const sendWithRetry = (retries = 2) => {
-      console.log(`Attempting to send pageview data (${retries} retries left)`);
       const success = sendBeacon(apiUrl, payload);
       if (!success && retries > 0) {
-        console.log(`Retrying pageview data in 1 second...`);
         setTimeout(() => sendWithRetry(retries - 1), 1000);
-      } else if (!success) {
-        console.error('Failed to send pageview data after retries');
-      } else {
-        console.log('Successfully sent pageview data');
       }
     };
     
