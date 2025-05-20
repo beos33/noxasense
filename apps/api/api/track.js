@@ -32,7 +32,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const payload = JSON.parse(req.body);
+    // Get the payload from the request body
+    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
     // Validate payload structure
     if (!payload.session || !Array.isArray(payload.pageviews)) {
