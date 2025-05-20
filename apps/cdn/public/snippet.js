@@ -74,12 +74,7 @@
       const blob = new Blob([JSON.stringify(data)], { 
         type: 'application/json; charset=UTF-8'
       });
-      const success = navigator.sendBeacon(endpoint, blob);
-      if (!success) {
-        console.warn('SendBeacon failed, falling back to fetch');
-        return false;
-      }
-      return true;
+      return navigator.sendBeacon(endpoint, blob);
     } catch (error) {
       console.warn('Error in sendBeacon:', error);
       return false;
@@ -87,55 +82,20 @@
   }
 
   // Function to send session data
-  async function sendSessionData() {
+  function sendSessionData() {
     // Only send if we haven't sent this session before
     if (!sessionData.sent) {
-      try {
-        const response = await fetch(`${apiUrl}/session`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            eventType: 'session',
-            ...sessionData
-          }),
-          mode: 'cors',
-          credentials: 'omit'
-        });
-        
-        if (response.ok) {
-          sessionData.sent = true;
-          localStorage.setItem(key, JSON.stringify(sessionData));
-        } else {
-          console.warn('Failed to send session data:', response.status, response.statusText);
-          // Try to read the error response
-          try {
-            const errorData = await response.json();
-            console.warn('Error details:', errorData);
-          } catch (e) {
-            // Ignore error reading response
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to send session data:', error);
+      const success = sendBeacon(`${apiUrl}/session`, sessionData);
+      if (success) {
+        sessionData.sent = true;
+        localStorage.setItem(key, JSON.stringify(sessionData));
       }
     }
   }
 
   // Function to send pageview data
   function sendPageviewData() {
-    fetch(`${apiUrl}/pageview`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(pageviewData),
-      mode: 'cors',
-      keepalive: true
-    }).catch(error => {
-      console.warn('Failed to send pageview data:', error);
-    });
+    sendBeacon(`${apiUrl}/pageview`, pageviewData);
   }
 
   // Update helpers for metrics

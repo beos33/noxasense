@@ -6,45 +6,50 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-module.exports = async function handler(req, res) {
-  // Set CORS headers for all responses
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Access-Control-Max-Age', '86400');
-
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
-  }
-
+module.exports = async (req, res) => {
   // Only allow POST requests
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   try {
-    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-
-    // Extract just the session data, removing eventType
-    const { eventType, ...sessionData } = payload;
-
-    // Validate session data
-    if (!sessionData.application_id) {
-      return res.status(400).json({ error: 'Missing application_id in session data' });
+    let data = req.body;
+    
+    // Parse if string
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        res.status(400).json({ error: 'Invalid JSON' });
+        return;
+      }
     }
 
-    // Insert into Supabase
-    const { error } = await supabase.from('sessions').insert([sessionData]);
+    // Ensure we have the required fields
+    if (!data.session_id || !data.application_id) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
+
+    // Upsert into Supabase
+    const { error } = await supabase
+      .from('sessions')
+      .upsert([data], {
+        onConflict: 'session_id',
+        ignoreDuplicates: false
+      });
+
     if (error) {
-      console.error('Error inserting session:', error);
-      return res.status(500).json({ error: 'Failed to insert session data' });
+      console.error('Supabase error:', error);
+      res.status(500).json({ error: 'Database error', details: error.message });
+      return;
     }
 
-    console.log('Successfully inserted session:', sessionData.session_id);
-    return res.status(200).json({ status: 'ok' });
-  } catch (error) {
-    console.error('API error in /track/session:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('Server error:', err);
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 } 

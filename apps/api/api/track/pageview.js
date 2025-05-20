@@ -7,61 +7,49 @@ const supabase = createClient(
 );
 
 module.exports = async (req, res) => {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  // Handle OPTIONS request
-  if (req.method === 'OPTIONS') {
-    res.status(204).end();
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
-  // Handle POST request
-  if (req.method === 'POST') {
-    try {
-      let data = req.body;
-      
-      // Parse if string
-      if (typeof data === 'string') {
-        try {
-          data = JSON.parse(data);
-        } catch (parseError) {
-          console.error('JSON parse error:', parseError);
-          res.status(400).json({ error: 'Invalid JSON' });
-          return;
-        }
-      }
-
-      // Ensure we have the required fields
-      if (!data.pageview_id || !data.session_id) {
-        res.status(400).json({ error: 'Missing required fields' });
+  try {
+    let data = req.body;
+    
+    // Parse if string
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        res.status(400).json({ error: 'Invalid JSON' });
         return;
       }
-
-      // Upsert into Supabase
-      const { error } = await supabase
-        .from('pageviews')
-        .upsert([data], {
-          onConflict: 'pageview_id',
-          ignoreDuplicates: false
-        });
-
-      if (error) {
-        console.error('Supabase error:', error);
-        res.status(500).json({ error: 'Database error', details: error.message });
-        return;
-      }
-
-      res.status(200).json({ success: true });
-    } catch (err) {
-      console.error('Server error:', err);
-      res.status(500).json({ error: 'Server error', details: err.message });
     }
-    return;
-  }
 
-  // Handle other methods
-  res.status(405).json({ error: 'Method not allowed' });
+    // Ensure we have the required fields
+    if (!data.pageview_id || !data.session_id) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
+
+    // Upsert into Supabase
+    const { error } = await supabase
+      .from('pageviews')
+      .upsert([data], {
+        onConflict: 'pageview_id',
+        ignoreDuplicates: false
+      });
+
+    if (error) {
+      console.error('Supabase error:', error);
+      res.status(500).json({ error: 'Database error', details: error.message });
+      return;
+    }
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('Server error:', err);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
 } 
