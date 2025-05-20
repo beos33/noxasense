@@ -68,20 +68,35 @@
     tti: undefined
   };
 
-  // Function to send data using sendBeacon
+  // Function to send data using sendBeacon with fallback
   function sendBeacon(endpoint, data) {
     try {
       const blob = new Blob([JSON.stringify(data)], { 
         type: 'application/json; charset=UTF-8'
       });
-      return navigator.sendBeacon(endpoint, blob);
+      
+      // Try sendBeacon first
+      if (navigator.sendBeacon) {
+        return navigator.sendBeacon(endpoint, blob);
+      }
+      
+      // Fallback to fetch with keepalive
+      return fetch(endpoint, {
+        method: 'POST',
+        body: blob,
+        keepalive: true,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then(response => response.ok)
+        .catch(() => false);
     } catch (error) {
-      console.warn('Error in sendBeacon:', error);
+      console.warn('Error sending data:', error);
       return false;
     }
   }
 
-  // Function to send session data
+  // Function to send session data with retry
   function sendSessionData() {
     // Only send if we haven't sent this session before
     if (!sessionData.sent) {
@@ -89,21 +104,36 @@
         session: sessionData,
         pageviews: []
       };
-      const success = sendBeacon(apiUrl, payload);
-      if (success) {
-        sessionData.sent = true;
-        localStorage.setItem(key, JSON.stringify(sessionData));
-      }
+      
+      const sendWithRetry = (retries = 2) => {
+        const success = sendBeacon(apiUrl, payload);
+        if (success) {
+          sessionData.sent = true;
+          localStorage.setItem(key, JSON.stringify(sessionData));
+        } else if (retries > 0) {
+          setTimeout(() => sendWithRetry(retries - 1), 1000);
+        }
+      };
+      
+      sendWithRetry();
     }
   }
 
-  // Function to send pageview data
+  // Function to send pageview data with retry
   function sendPageviewData() {
     const payload = {
       session: sessionData,
       pageviews: [pageviewData]
     };
-    sendBeacon(apiUrl, payload);
+    
+    const sendWithRetry = (retries = 2) => {
+      const success = sendBeacon(apiUrl, payload);
+      if (!success && retries > 0) {
+        setTimeout(() => sendWithRetry(retries - 1), 1000);
+      }
+    };
+    
+    sendWithRetry();
   }
 
   // Update helpers for metrics
