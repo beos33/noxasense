@@ -73,24 +73,7 @@
       const blob = new Blob([JSON.stringify(data)], { 
         type: 'application/json; charset=UTF-8'
       });
-      const success = navigator.sendBeacon(endpoint, blob);
-      if (!success) {
-        console.warn('Failed to send data via sendBeacon, falling back to fetch');
-        // Fallback to fetch if sendBeacon fails
-        fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-          mode: 'cors',
-          credentials: 'omit',
-          keepalive: true
-        }).catch(error => {
-          console.warn('Fallback fetch also failed:', error);
-        });
-      }
-      return success;
+      return navigator.sendBeacon(endpoint, blob);
     } catch (error) {
       console.warn('Error in sendBeacon:', error);
       return false;
