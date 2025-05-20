@@ -73,7 +73,24 @@
       const blob = new Blob([JSON.stringify(data)], { 
         type: 'application/json; charset=UTF-8'
       });
-      return navigator.sendBeacon(endpoint, blob);
+      const success = navigator.sendBeacon(endpoint, blob);
+      if (!success) {
+        console.warn('Failed to send data via sendBeacon, falling back to fetch');
+        // Fallback to fetch if sendBeacon fails
+        fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+          mode: 'cors',
+          credentials: 'omit',
+          keepalive: true
+        }).catch(error => {
+          console.warn('Fallback fetch also failed:', error);
+        });
+      }
+      return success;
     } catch (error) {
       console.warn('Error in sendBeacon:', error);
       return false;
@@ -98,6 +115,8 @@
         if (response.ok) {
           sessionData.sent = true;
           localStorage.setItem(key, JSON.stringify(sessionData));
+        } else {
+          console.warn('Failed to send session data:', response.status, response.statusText);
         }
       } catch (error) {
         console.warn('Failed to send session data:', error);
@@ -114,22 +133,7 @@
     });
 
     if (!success) {
-      // Fallback to fetch if sendBeacon fails
-      fetch(`${apiUrl}/pageview`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pageviews: [pageviewData],
-          application_id: appId
-        }),
-        mode: 'cors',
-        credentials: 'omit',
-        keepalive: true
-      }).catch(error => {
-        console.warn('Fallback fetch also failed:', error);
-      });
+      console.warn('Failed to send pageview data via sendBeacon');
     }
   }
 
