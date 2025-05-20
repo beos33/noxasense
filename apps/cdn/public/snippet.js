@@ -68,9 +68,23 @@
     tti: undefined
   };
 
-  // Function to send data using sendBeacon with fallback
+  // Function to send data using fetch
   function sendBeacon(endpoint, data) {
     try {
+      // Validate data structure before sending
+      if (!data.session || !Array.isArray(data.pageviews)) {
+        console.error('Invalid data structure:', data);
+        return false;
+      }
+
+      // Ensure all required fields are present
+      const requiredSessionFields = ['session_id', 'application_id', 'created_at'];
+      const missingFields = requiredSessionFields.filter(field => !data.session[field]);
+      if (missingFields.length > 0) {
+        console.error('Missing required session fields:', missingFields);
+        return false;
+      }
+
       // Create a no-credentials fetch request
       return fetch(endpoint, {
         method: 'POST',
@@ -83,6 +97,7 @@
         }
       }).then(() => true).catch(() => false);
     } catch (error) {
+      console.error('Error sending data:', error);
       return false;
     }
   }
@@ -91,8 +106,17 @@
   function sendSessionData() {
     // Only send if we haven't sent this session before
     if (!sessionData.sent) {
+      // Ensure all required fields are present
+      if (!sessionData.session_id || !sessionData.application_id) {
+        console.error('Missing required session fields');
+        return;
+      }
+
       const payload = {
-        session: sessionData,
+        session: {
+          ...sessionData,
+          created_at: sessionData.created_at || new Date().toISOString()
+        },
         pageviews: []
       };
       
@@ -112,6 +136,12 @@
 
   // Function to send pageview data with retry
   function sendPageviewData() {
+    // Ensure pageview has required fields
+    if (!pageviewData.pageview_id || !pageviewData.session_id) {
+      console.error('Missing required pageview fields');
+      return;
+    }
+
     const payload = {
       session: sessionData,
       pageviews: [pageviewData]
