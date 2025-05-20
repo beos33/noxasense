@@ -124,31 +124,17 @@
 
   // Function to send pageview data
   function sendPageviewData() {
-    const data = {
-      pageviews: [{
-        ...pageviewData,
-        sent_at: new Date().toISOString()
-      }]
-    };
-
-    // Try sendBeacon first
-    const success = sendBeacon(`${apiUrl}/pageview`, data);
-
-    // Fall back to fetch if sendBeacon fails
-    if (!success) {
-      fetch(`${apiUrl}/pageview`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-        mode: 'cors',
-        credentials: 'omit',
-        keepalive: true
-      }).catch(error => {
-        console.warn('Failed to send pageview data:', error);
-      });
-    }
+    fetch(`${apiUrl}/pageview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(pageviewData),
+      mode: 'cors',
+      keepalive: true
+    }).catch(error => {
+      console.warn('Failed to send pageview data:', error);
+    });
   }
 
   // Update helpers for metrics
