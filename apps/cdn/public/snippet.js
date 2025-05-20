@@ -91,8 +91,8 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            ...sessionData,
-            eventType: 'session'
+            eventType: 'session',
+            ...sessionData
           }),
           mode: 'cors',
           credentials: 'omit'

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+const { createClient } = require('@supabase/supabase-js');
 
 // Supabase client initialization
 const supabase = createClient(
@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Set CORS headers for all responses
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -25,21 +25,25 @@ export default async function handler(req, res) {
 
   try {
     const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const pageviews = payload.pageviews || [payload];
+    
+    // Extract pageview data
+    const { eventType, data: pageviewData } = payload;
 
-    if (!Array.isArray(pageviews) || pageviews.length === 0) {
+    if (!pageviewData) {
       return res.status(400).json({ error: 'Invalid pageview data format' });
     }
 
     // Insert into Supabase
-    const { error } = await supabase.from('pageviews').insert(pageviews);
+    const { error } = await supabase.from('pageviews').insert([pageviewData]);
     if (error) {
-      console.error('Error inserting pageviews:', error);
+      console.error('Error inserting pageview:', error);
       return res.status(500).json({ error: 'Failed to insert pageview data' });
     }
 
-    console.log('Successfully inserted pageviews:', pageviews.length);
+    console.log('Successfully inserted pageview:', pageviewData.pageview_id);
     return res.status(200).json({ status: 'ok' });
   } catch (error) {
     console.error('API error in /track/pageview:', error);
- 
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+} 
