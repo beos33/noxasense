@@ -12,6 +12,7 @@
   class SessionManager {
     constructor() {
       this.session = this.getOrCreateSession();
+      this.sendNewSession();
     }
 
     createNewSession() {
@@ -25,7 +26,8 @@
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         language: navigator.language,
         device_type: /Mobi/.test(navigator.userAgent) ? 'mobile' : 'desktop',
-        referrer: document.referrer
+        referrer: document.referrer,
+        _sent: false
       };
     }
 
@@ -66,6 +68,34 @@
 
     getSession() {
       return this.session;
+    }
+
+    async sendNewSession() {
+      // Only send if this is a new session and hasn't been sent
+      if (!this.session._sent) {
+        const sessionData = { ...this.session };
+        delete sessionData._sent;
+
+        try {
+          const response = await fetch(apiUrl + '/session', {
+            method: 'POST',
+            body: JSON.stringify({ session: sessionData }),
+            keepalive: true,
+            mode: 'cors',
+            credentials: 'omit',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok) {
+            this.session._sent = true;
+            this.saveSession(this.session);
+          }
+        } catch (error) {
+          console.error('Failed to send session:', error);
+        }
+      }
     }
   }
 
