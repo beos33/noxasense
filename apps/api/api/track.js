@@ -1,82 +1,77 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase client initialization
+// Initialize Supabase client
 const supabase = createClient(
-  process.env.SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Accept',
+  'Access-Control-Max-Age': '86400',
+};
+
 export default async function handler(req, res) {
-  // Handle CORS preflight requests
+  // Handle preflight requests
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Access-Control-Max-Age', '86400');
-    return res.status(204).end();
+    console.log('Handling OPTIONS request');
+    return res.status(200).setHeaders(corsHeaders).end();
   }
 
-  // Set CORS headers for actual requests
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Set CORS headers for all responses
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    res.setHeader(key, value);
+  });
 
+  // Only allow POST requests
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    console.log('Method not allowed:', req.method);
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    let payload;
-    try {
-      payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    } catch (parseError) {
-      console.error('Failed to parse request body:', parseError);
-      return res.status(400).json({ error: 'Invalid JSON payload' });
-    }
+    console.log('Processing POST request');
+    const payload = JSON.parse(req.body);
+    console.log('Received payload:', JSON.stringify(payload, null, 2));
 
+    // Validate payload structure
     if (!payload.session || !Array.isArray(payload.pageviews)) {
-      return res.status(400).json({ error: 'Invalid payload format' });
+      console.error('Invalid payload structure');
+      return res.status(400).json({ error: 'Invalid payload structure' });
     }
 
     // Insert session data
-    if (!payload.session.application_id || !payload.session.session_id) {
-      return res.status(400).json({ error: 'Missing required session fields' });
-    }
-
-    const { error: sessionError } = await supabase
+    const { data: sessionData, error: sessionError } = await supabase
       .from('sessions')
-      .upsert([payload.session], {
+      .upsert(payload.session, {
         onConflict: 'session_id',
         ignoreDuplicates: false
       });
 
     if (sessionError) {
-      console.error('Error inserting session:', sessionError);
-      return res.status(500).json({ error: 'Database error', details: sessionError.message });
+      console.error('Session insert error:', sessionError);
+      return res.status(500).json({ error: 'Failed to insert session data' });
     }
 
-    // Insert pageview data
-    for (const pageview of payload.pageviews) {
-      if (!pageview.pageview_id || !pageview.session_id) {
-        console.warn('Skipping invalid pageview:', pageview);
-        continue;
-      }
-
-      const { error: pageviewError } = await supabase
+    // Insert pageview data if any
+    if (payload.pageviews.length > 0) {
+      const { data: pageviewData, error: pageviewError } = await supabase
         .from('pageviews')
-        .upsert([pageview], {
-          onConflict: 'pageview_id',
-          ignoreDuplicates: false
-        });
+        .insert(payload.pageviews);
 
       if (pageviewError) {
-        console.error('Error inserting pageview:', pageviewError);
+        console.error('Pageview insert error:', pageviewError);
+        return res.status(500).json({ error: 'Failed to insert pageview data' });
       }
     }
 
-    return res.status(200).json({ status: 'ok' });
+    console.log('Successfully processed request');
+    return res.status(200).json({ success: true });
   } catch (error) {
-    console.error('API error in /track:', error);
-    return res.status(500).json({ error: 'Internal Server Error', details: error.message });
+    console.error('Error processing request:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
