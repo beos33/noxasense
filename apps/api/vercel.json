@@ -2,7 +2,7 @@
   "version": 2,
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/track",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -21,18 +21,6 @@
           "value": "86400"
         }
       ]
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/track",
-      "methods": ["OPTIONS", "POST"],
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Accept",
-        "Access-Control-Max-Age": "86400"
-      }
     }
   ]
 } 
