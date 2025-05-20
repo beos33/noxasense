@@ -86,7 +86,7 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(sessionData),
-          credentials: 'include'
+          credentials: 'omit' // Changed from 'include' to 'omit' since we're using wildcard CORS
         });
         
         if (response.ok) {
@@ -102,10 +102,14 @@
   // Function to send pageview data
   function sendPageviewData() {
     // Use sendBeacon for critical pageview data
-    sendBeacon(`${apiUrl}/pageview`, {
+    const success = sendBeacon(`${apiUrl}/pageview`, {
       pageviews: [pageviewData],
       application_id: appId
     });
+    
+    if (!success) {
+      console.warn('Failed to send pageview data via sendBeacon');
+    }
   }
 
   // Update helpers for metrics
