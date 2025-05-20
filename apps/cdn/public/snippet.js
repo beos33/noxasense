@@ -73,7 +73,12 @@
       const blob = new Blob([JSON.stringify(data)], { 
         type: 'application/json; charset=UTF-8'
       });
-      return navigator.sendBeacon(endpoint, blob);
+      const success = navigator.sendBeacon(endpoint, blob);
+      if (!success) {
+        console.warn('SendBeacon failed, falling back to fetch');
+        return false;
+      }
+      return true;
     } catch (error) {
       console.warn('Error in sendBeacon:', error);
       return false;
@@ -119,21 +124,24 @@
 
   // Function to send pageview data
   function sendPageviewData() {
-    // Use sendBeacon for critical pageview data
-    const success = sendBeacon(`${apiUrl}/pageview`, {
-      pageviews: [pageviewData]
-    });
+    const data = {
+      pageviews: [{
+        ...pageviewData,
+        sent_at: new Date().toISOString()
+      }]
+    };
 
+    // Try sendBeacon first
+    const success = sendBeacon(`${apiUrl}/pageview`, data);
+
+    // Fall back to fetch if sendBeacon fails
     if (!success) {
-      // Fallback to fetch if sendBeacon fails
       fetch(`${apiUrl}/pageview`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          pageviews: [pageviewData]
-        }),
+        body: JSON.stringify(data),
         mode: 'cors',
         credentials: 'omit',
         keepalive: true
