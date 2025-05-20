@@ -71,31 +71,17 @@
   // Function to send data using sendBeacon with fallback
   function sendBeacon(endpoint, data) {
     try {
-      const blob = new Blob([JSON.stringify(data)], { 
-        type: 'application/json'
-      });
-      
-      // Try sendBeacon first
-      if (navigator.sendBeacon) {
-        return navigator.sendBeacon(endpoint, blob);
-      }
-      
-      // Fallback to fetch with keepalive
+      // Create a no-credentials fetch request
       return fetch(endpoint, {
         method: 'POST',
-        body: blob,
+        body: JSON.stringify(data),
         keepalive: true,
         mode: 'cors',
         credentials: 'omit',
         headers: {
           'Content-Type': 'application/json'
         }
-      }).then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return true;
-      }).catch(() => false);
+      }).then(() => true).catch(() => false);
     } catch (error) {
       return false;
     }
