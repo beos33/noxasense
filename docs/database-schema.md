@@ -45,17 +45,16 @@
 |--------------------|-----------|
 | pageview_id        | UUID (PK) |
 | session_id         | UUID (FK → sessions.session_id) |
-| datetime           | Timestamp |
+| created_at         | Timestamp |
 | domain             | Text      |
 | path               | Text      |
 | parameters         | Text      |
+| cls                | Float     |
 | lcp                | Float     |
 | fid                | Float     |
-| cls                | Float     |
 | ttfb               | Float     |
-| tti                | Float     |
+| fcp                | Float     |
 | inp                | Float     |
-| visible_duration   | Float     |
 | dom_interactive    | Float     |
 | dom_content_loaded | Float     |
 | dom_complete       | Float     |

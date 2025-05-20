@@ -37,10 +37,10 @@ The API receives performance data from the CDN snippet and stores it in Supabase
         "ttfb": "number",
         "fcp": "number",
         "inp": "number",
-        "domInteractive": "number",
-        "domContentLoaded": "number",
-        "domComplete": "number",
-        "loadTime": "number"
+        "dom_interactive": "number",
+        "dom_content_loaded": "number",
+        "dom_complete": "number",
+        "load_time": "number"
       }
     ]
   }
@@ -57,6 +57,8 @@ The API receives performance data from the CDN snippet and stores it in Supabase
 - Uses a single API handler (`api/track.js`)
 - Processes session and pageview data in a single transaction
 - Logs errors and returns HTTP status codes accordingly
+- Handles CORS for all origins
+- Supports both OPTIONS (preflight) and POST requests
 
 ### Sample Server Code
 
@@ -69,27 +71,58 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+    return res.status(204).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
+  // Set CORS headers for actual requests
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   try {
-    const { session, pageviews } = req.body;
+    let payload;
+    try {
+      payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return res.status(400).json({ error: 'Invalid JSON payload' });
+    }
 
-    // Insert session if it doesn't exist
-    const { error: sessionError } = await supabase
-      .from('sessions')
-      .upsert([session], { onConflict: 'session_id' });
-    
-    if (sessionError) throw sessionError;
+    if (!Array.isArray(payload)) {
+      return res.status(400).json({ error: 'Invalid payload format - must be an array' });
+    }
 
-    // Insert pageviews
-    if (pageviews && pageviews.length > 0) {
-      const { error: pageviewError } = await supabase
-        .from('pageviews')
-        .insert(pageviews);
-      
-      if (pageviewError) throw pageviewError;
+    for (const item of payload) {
+      if (!item.eventType || !item.data) {
+        console.error('Invalid item format:', item);
+        continue;
+      }
+
+      try {
+        if (item.eventType === 'session') {
+          if (!item.data.application_id) {
+            console.error('Missing application_id in session data:', item);
+            continue;
+          }
+          const { error } = await supabase.from('sessions').insert([item.data]);
+          if (error) throw error;
+        } else if (item.eventType === 'pageview') {
+          const { error } = await supabase.from('pageviews').insert([item.data]);
+          if (error) throw error;
+        }
+      } catch (itemError) {
+        console.error(`Error processing ${item.eventType}:`, itemError);
+      }
     }
 
     return res.status(200).json({ status: 'ok' });
@@ -124,3 +157,4 @@ SUPABASE_SERVICE_ROLE_KEY=your-secret-key
   - Error logging with monitoring tools
 - Each session is tied to an `application_id` for multi-app support
 - Pageviews are linked to sessions via `session_id`
+- CORS is configured to accept requests from all origins

@@ -9,10 +9,12 @@ const supabase = createClient(
 export default async function handler(req, res) {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const origin = req.headers.origin;
+    res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     return res.status(204).end();
   }
 
@@ -22,9 +24,11 @@ export default async function handler(req, res) {
   }
 
   // Set CORS headers for actual requests
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   try {
     let payload;

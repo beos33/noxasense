@@ -76,19 +76,32 @@
   }
 
   // Function to send session data
-  function sendSessionData() {
+  async function sendSessionData() {
     // Only send if we haven't sent this session before
     if (!sessionData.sent) {
-      const success = sendBeacon(`${apiUrl}/session`, sessionData);
-      if (success) {
-        sessionData.sent = true;
-        localStorage.setItem(key, JSON.stringify(sessionData));
+      try {
+        const response = await fetch(`${apiUrl}/session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(sessionData),
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          sessionData.sent = true;
+          localStorage.setItem(key, JSON.stringify(sessionData));
+        }
+      } catch (error) {
+        console.warn('Failed to send session data:', error);
       }
     }
   }
 
   // Function to send pageview data
   function sendPageviewData() {
+    // Use sendBeacon for critical pageview data
     sendBeacon(`${apiUrl}/pageview`, {
       pageviews: [pageviewData],
       application_id: appId

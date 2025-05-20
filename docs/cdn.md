@@ -24,24 +24,27 @@ The CDN hosts the JavaScript snippet that websites integrate to collect performa
   - Unique pageview ID
   - URL and path information
   - Associated session ID
+  - Performance metrics
 - Application-level association via `NOXASENSE_APP_ID`
 
 ## Structure
 
 - `snippet.js`: Core JavaScript snippet file, hosted in `public/`
+- `server.js`: Express server for serving the snippet
 
 ## Data Collection & Sending
 
 The snippet implements a reliable data collection and sending strategy:
 
 1. **Data Collection:**
-   - Stores session and pageview data in localStorage
    - Collects Web Vitals metrics in real-time
    - Updates metrics as they become available
+   - Stores session data in localStorage
+   - Creates new session after 30 minutes
 
 2. **Sending Strategy:**
-   - Sends data when 10 pageviews are collected
-   - Sends remaining data when user leaves the page
+   - Sends session data after page is fully loaded
+   - Sends pageview data when user leaves the page
    - Uses `navigator.sendBeacon()` for guaranteed delivery during page unload
    - Falls back to `fetch(..., { keepalive: true })` for older browsers
 
@@ -66,3 +69,44 @@ Add the following script to your website:
 - Deployed via Vercel CDN for global availability
 - Automatically handles CORS and caching headers
 - Supports all modern browsers
+- Uses HTTPS for secure data transmission
+
+## Data Structure
+
+### Session Data
+```javascript
+{
+  session_id: "uuid",
+  application_id: "string",
+  created_at: "iso-timestamp",
+  browser: "string",
+  os: "string",
+  screen_resolution: "string",
+  timezone: "string",
+  language: "string",
+  device_type: "mobile|desktop",
+  referrer: "string"
+}
+```
+
+### Pageview Data
+```javascript
+{
+  pageview_id: "uuid",
+  session_id: "uuid",
+  created_at: "iso-timestamp",
+  domain: "string",
+  path: "string",
+  parameters: "string",
+  cls: "number",
+  lcp: "number",
+  fid: "number",
+  ttfb: "number",
+  fcp: "number",
+  inp: "number",
+  dom_interactive: "number",
+  dom_content_loaded: "number",
+  dom_complete: "number",
+  load_time: "number"
+}
+```
