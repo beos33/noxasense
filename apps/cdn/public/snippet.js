@@ -85,7 +85,11 @@
   function sendSessionData() {
     // Only send if we haven't sent this session before
     if (!sessionData.sent) {
-      const success = sendBeacon(`${apiUrl}/session`, sessionData);
+      const payload = {
+        session: sessionData,
+        pageviews: []
+      };
+      const success = sendBeacon(apiUrl, payload);
       if (success) {
         sessionData.sent = true;
         localStorage.setItem(key, JSON.stringify(sessionData));
@@ -95,7 +99,11 @@
 
   // Function to send pageview data
   function sendPageviewData() {
-    sendBeacon(`${apiUrl}/pageview`, pageviewData);
+    const payload = {
+      session: sessionData,
+      pageviews: [pageviewData]
+    };
+    sendBeacon(apiUrl, payload);
   }
 
   // Update helpers for metrics

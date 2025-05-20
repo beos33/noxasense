@@ -2,17 +2,7 @@
   "version": 2,
   "routes": [
     {
-      "src": "/api/track/pageview",
-      "methods": ["OPTIONS", "POST"],
-      "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Max-Age": "86400"
-      }
-    },
-    {
-      "src": "/api/track/session",
+      "src": "/api/track",
       "methods": ["OPTIONS", "POST"],
       "headers": {
         "Access-Control-Allow-Origin": "*",

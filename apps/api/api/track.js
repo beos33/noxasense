@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase client initialized with root-level .env variables
+// Supabase client initialization
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Max-Age', '86400');
     return res.status(204).end();
@@ -18,10 +18,9 @@ export default async function handler(req, res) {
 
   // Set CORS headers for actual requests
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle actual requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -29,59 +28,55 @@ export default async function handler(req, res) {
   try {
     let payload;
     try {
-      // Handle both string and object payloads
       payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError);
       return res.status(400).json({ error: 'Invalid JSON payload' });
     }
 
-    // Handle both array and single object payloads
-    const items = Array.isArray(payload) ? payload : [payload];
-    
-    if (items.length === 0) {
-      console.warn('Empty payload received');
-      return res.status(200).json({ status: 'ok', message: 'Empty payload' });
+    if (!payload.session || !Array.isArray(payload.pageviews)) {
+      return res.status(400).json({ error: 'Invalid payload format' });
     }
 
-    for (const item of items) {
-      if (!item.eventType || !item.data) {
-        console.error('Invalid item format:', item);
+    // Insert session data
+    if (!payload.session.application_id || !payload.session.session_id) {
+      return res.status(400).json({ error: 'Missing required session fields' });
+    }
+
+    const { error: sessionError } = await supabase
+      .from('sessions')
+      .upsert([payload.session], {
+        onConflict: 'session_id',
+        ignoreDuplicates: false
+      });
+
+    if (sessionError) {
+      console.error('Error inserting session:', sessionError);
+      return res.status(500).json({ error: 'Database error', details: sessionError.message });
+    }
+
+    // Insert pageview data
+    for (const pageview of payload.pageviews) {
+      if (!pageview.pageview_id || !pageview.session_id) {
+        console.warn('Skipping invalid pageview:', pageview);
         continue;
       }
 
-      try {
-        if (item.eventType === 'session') {
-          // Only check application_id for session events
-          if (!item.data.application_id) {
-            console.error('Missing application_id in session data:', item);
-            continue;
-          }
-          const { error } = await supabase.from('sessions').insert([item.data]);
-          if (error) {
-            console.error('Error inserting session:', error);
-            throw error;
-          }
-          console.log('Successfully inserted session:', item.data.session_id);
-        } else if (item.eventType === 'pageview') {
-          const { error } = await supabase.from('pageviews').insert([item.data]);
-          if (error) {
-            console.error('Error inserting pageview:', error);
-            throw error;
-          }
-          console.log('Successfully inserted pageview:', item.data.pageview_id);
-        } else {
-          console.warn('Unknown event type:', item.eventType);
-        }
-      } catch (itemError) {
-        console.error(`Error processing ${item.eventType}:`, itemError);
-        // Continue processing other items even if one fails
+      const { error: pageviewError } = await supabase
+        .from('pageviews')
+        .upsert([pageview], {
+          onConflict: 'pageview_id',
+          ignoreDuplicates: false
+        });
+
+      if (pageviewError) {
+        console.error('Error inserting pageview:', pageviewError);
       }
     }
 
     return res.status(200).json({ status: 'ok' });
   } catch (error) {
-    console.error('API error in /track:', error.message);
+    console.error('API error in /track:', error);
     return res.status(500).json({ error: 'Internal Server Error', details: error.message });
   }
 }
