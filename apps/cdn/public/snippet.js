@@ -72,7 +72,7 @@
   function sendBeacon(endpoint, data) {
     try {
       const blob = new Blob([JSON.stringify(data)], { 
-        type: 'application/json; charset=UTF-8'
+        type: 'application/json'
       });
       
       // Try sendBeacon first
@@ -88,8 +88,7 @@
         mode: 'cors',
         credentials: 'omit',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         }
       }).then(response => {
         if (!response.ok) {
