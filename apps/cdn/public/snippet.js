@@ -60,11 +60,12 @@
     ttfb: undefined,
     fcp: undefined,
     inp: undefined,
-    loaf: undefined,
-    domInteractive: undefined,
-    domContentLoaded: undefined,
-    domComplete: undefined,
-    loadTime: undefined
+    visible_duration: undefined,
+    dom_interactive: undefined,
+    dom_content_loaded: undefined,
+    dom_complete: undefined,
+    load_time: undefined,
+    tti: undefined
   };
 
   // Function to send data using sendBeacon
@@ -139,7 +140,9 @@
 
   // Update helpers for metrics
   function updatePageviewMetric(field, value) {
-    pageviewData[field] = value;
+    // Convert camelCase to snake_case for database compatibility
+    const snakeField = field.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+    pageviewData[snakeField] = value;
   }
 
   // Web Vitals hooks
@@ -155,10 +158,10 @@
     try {
       const nav = performance.getEntriesByType('navigation')[0];
       if (nav) {
-        updatePageviewMetric('domInteractive', nav.domInteractive);
-        updatePageviewMetric('domContentLoaded', nav.domContentLoadedEventEnd);
-        updatePageviewMetric('domComplete', nav.domComplete);
-        updatePageviewMetric('loadTime', nav.loadEventEnd);
+        updatePageviewMetric('dom_interactive', nav.domInteractive);
+        updatePageviewMetric('dom_content_loaded', nav.domContentLoadedEventEnd);
+        updatePageviewMetric('dom_complete', nav.domComplete);
+        updatePageviewMetric('load_time', nav.loadEventEnd);
       }
     } catch (e) {
       console.warn("Failed to update DOM timing metrics", e);

@@ -21,23 +21,40 @@ module.exports = async (req, res) => {
   // Handle POST request
   if (req.method === 'POST') {
     try {
-      const data = req.body;
-      console.log('Received data:', data);
+      let data = req.body;
+      
+      // Parse if string
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch (parseError) {
+          console.error('JSON parse error:', parseError);
+          res.status(400).json({ error: 'Invalid JSON' });
+          return;
+        }
+      }
 
+      // Ensure we have the required fields
+      if (!data.pageview_id || !data.session_id) {
+        res.status(400).json({ error: 'Missing required fields' });
+        return;
+      }
+
+      // Insert into Supabase
       const { error } = await supabase
         .from('pageviews')
         .insert([data]);
 
       if (error) {
         console.error('Supabase error:', error);
-        res.status(500).json({ error: 'Database error' });
+        res.status(500).json({ error: 'Database error', details: error.message });
         return;
       }
 
       res.status(200).json({ success: true });
     } catch (err) {
       console.error('Server error:', err);
-      res.status(500).json({ error: 'Server error' });
+      res.status(500).json({ error: 'Server error', details: err.message });
     }
     return;
   }
