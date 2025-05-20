@@ -90,7 +90,10 @@
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(sessionData),
+          body: JSON.stringify({
+            ...sessionData,
+            eventType: 'session'
+          }),
           mode: 'cors',
           credentials: 'omit'
         });
@@ -100,6 +103,13 @@
           localStorage.setItem(key, JSON.stringify(sessionData));
         } else {
           console.warn('Failed to send session data:', response.status, response.statusText);
+          // Try to read the error response
+          try {
+            const errorData = await response.json();
+            console.warn('Error details:', errorData);
+          } catch (e) {
+            // Ignore error reading response
+          }
         }
       } catch (error) {
         console.warn('Failed to send session data:', error);
@@ -111,8 +121,8 @@
   function sendPageviewData() {
     // Use sendBeacon for critical pageview data
     const success = sendBeacon(`${apiUrl}/pageview`, {
-      pageviews: [pageviewData],
-      application_id: appId
+      eventType: 'pageview',
+      data: pageviewData
     });
 
     if (!success) {
