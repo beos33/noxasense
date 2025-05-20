@@ -2,34 +2,63 @@
 
 ## Description
 
-The API receives performance data and stores it in Supabase.
+The API receives performance data from the CDN snippet and stores it in Supabase. It handles both session and pageview data in a single endpoint.
 
 ## Functional Requirements
 
 ### Endpoints
 
-- `POST /api/track`: Accepts batched payload of session and pageview events.
-  - Each item must contain:
-    ```json
-    {
-      "eventType": "session" | "pageview",
-      "data": { ...fields... }
-    }
-    ```
+- `POST /api/track`: Accepts performance data payload containing session and pageviews
+  ```json
+  {
+    "session": {
+      "session_id": "uuid",
+      "application_id": "string",
+      "created_at": "iso-timestamp",
+      "browser": "string",
+      "os": "string",
+      "screen_resolution": "string",
+      "timezone": "string",
+      "language": "string",
+      "device_type": "mobile|desktop",
+      "referrer": "string"
+    },
+    "pageviews": [
+      {
+        "pageview_id": "uuid",
+        "session_id": "uuid",
+        "created_at": "iso-timestamp",
+        "domain": "string",
+        "path": "string",
+        "parameters": "string",
+        "cls": "number",
+        "lcp": "number",
+        "fid": "number",
+        "ttfb": "number",
+        "fcp": "number",
+        "inp": "number",
+        "domInteractive": "number",
+        "domContentLoaded": "number",
+        "domComplete": "number",
+        "loadTime": "number"
+      }
+    ]
+  }
+  ```
 
 ### Database Integration
-- Uses Supabase JS client.
-- Inserts session data into `sessions` table.
-- Inserts pageview data into `pageviews` table.
-- Links sessions to applications via `application_id`.
+- Uses Supabase JS client
+- Inserts session data into `sessions` table
+- Inserts pageview data into `pageviews` table
+- Links sessions to applications via `application_id`
 
 ## Implementation Overview
 
-- Uses a single API handler (`api/track.js`).
-- Iterates over batched items and inserts to correct tables.
-- Logs errors and returns HTTP status codes accordingly.
+- Uses a single API handler (`api/track.js`)
+- Processes session and pageview data in a single transaction
+- Logs errors and returns HTTP status codes accordingly
 
-### Sample Server Code (Simplified)
+### Sample Server Code
 
 ```js
 import { createClient } from '@supabase/supabase-js';
@@ -45,16 +74,22 @@ export default async function handler(req, res) {
   }
 
   try {
-    const payload = req.body;
+    const { session, pageviews } = req.body;
 
-    for (const item of payload) {
-      if (item.eventType === 'session') {
-        const { error } = await supabase.from('sessions').insert([item.data]);
-        if (error) throw error;
-      } else if (item.eventType === 'pageview') {
-        const { error } = await supabase.from('pageviews').insert([item.data]);
-        if (error) throw error;
-      }
+    // Insert session if it doesn't exist
+    const { error: sessionError } = await supabase
+      .from('sessions')
+      .upsert([session], { onConflict: 'session_id' });
+    
+    if (sessionError) throw sessionError;
+
+    // Insert pageviews
+    if (pageviews && pageviews.length > 0) {
+      const { error: pageviewError } = await supabase
+        .from('pageviews')
+        .insert(pageviews);
+      
+      if (pageviewError) throw pageviewError;
     }
 
     return res.status(200).json({ status: 'ok' });
@@ -75,12 +110,17 @@ SUPABASE_SERVICE_ROLE_KEY=your-secret-key
 
 ## Deployment
 
-- Deployed via Vercel inside `apps/api` folder.
-- Uses API file routing to expose `/api/track`.
-- Works without extra `vercel.json` configuration.
+- Deployed via Vercel inside `apps/api` folder
+- Uses API file routing to expose `/api/track`
+- Works without extra `vercel.json` configuration
 
 ## Notes
 
-- No validation or rate limiting included (yet).
-- For production, consider adding schema validation, RLS policies, and error logging with monitoring tools.
-- Each session should be tied to an `application_id` for multi-app support.
+- No validation or rate limiting included (yet)
+- For production, consider adding:
+  - Schema validation for session and pageview data
+  - Rate limiting per application_id
+  - RLS policies in Supabase
+  - Error logging with monitoring tools
+- Each session is tied to an `application_id` for multi-app support
+- Pageviews are linked to sessions via `session_id`
