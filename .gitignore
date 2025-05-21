@@ -1,4 +1,4 @@
 .env
 packages
 node_modules
-.pem
+certs
