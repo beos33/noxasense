@@ -46,16 +46,41 @@ export default async function handler(req, res) {
     // Insert pageview data if any
     if (payload.pageviews.length > 0) {
       try {
+        // Log the first pageview for debugging
+        console.log('Inserting pageview data:', JSON.stringify(payload.pageviews[0], null, 2));
+        
         const { error: pageviewError } = await supabase
           .from('pageviews')
           .insert(payload.pageviews);
 
         if (pageviewError) {
           console.error('Pageview insert error:', pageviewError);
-          return res.status(500).json({ 
-            error: 'Failed to insert pageview data',
-            details: pageviewError.message
-          });
+          
+          // If it's a schema cache issue, try to refresh the client
+          if (pageviewError.code === 'PGRST204') {
+            console.log('Schema cache issue detected, attempting to refresh...');
+            // Recreate the client to refresh schema cache
+            const refreshedSupabase = createClient(
+              process.env.SUPABASE_URL || '',
+              process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+            );
+            
+            const { error: retryError } = await refreshedSupabase
+              .from('pageviews')
+              .insert(payload.pageviews);
+              
+            if (retryError) {
+              return res.status(500).json({ 
+                error: 'Failed to insert pageview data after retry',
+                details: retryError.message
+              });
+            }
+          } else {
+            return res.status(500).json({ 
+              error: 'Failed to insert pageview data',
+              details: pageviewError.message
+            });
+          }
         }
       } catch (supabaseError) {
         console.error('Supabase connection error:', supabaseError);
