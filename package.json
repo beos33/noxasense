@@ -1,5 +1,14 @@
 {
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4"
+  },
+  "scripts": {
+    "dev": "concurrently \"npm run dev:cdn\" \"npm run dev:dashboard\"",
+    "dev:cdn": "cd apps/cdn && npm start",
+    "dev:dashboard": "cd apps/dashboard && npm run dev",
+    "install:all": "npm install && cd apps/cdn && npm install && cd ../dashboard && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }

@@ -37,10 +37,30 @@ The Dashboard provides a fast, modern interface for users to monitor their web a
   - LCP (Largest Contentful Paint)
   - FID (First Input Delay)
   - CLS (Cumulative Layout Shift)
+  - INP (Interaction to Next Paint)
+  - FCP (First Contentful Paint)
+  - TTFB (Time to First Byte)
+  - Load Time
 - Basic metrics
   - Page load time
   - Session count
   - Pageview count
+
+### Detailed Performance Pages
+Each Core Web Vital and performance metric has its own detailed page:
+- `/applications/[id]/lcp` - Largest Contentful Paint details
+- `/applications/[id]/fid` - First Input Delay details
+- `/applications/[id]/cls` - Cumulative Layout Shift details
+- `/applications/[id]/inp` - Interaction to Next Paint details
+- `/applications/[id]/fcp` - First Contentful Paint details
+- `/applications/[id]/ttfb` - Time to First Byte details
+- `/applications/[id]/load-time` - Page Load Time details
+
+Each page includes:
+- Overview statistics (average, best, worst, count of "good" ratings)
+- Educational content about the metric
+- Detailed table of all pageviews with timestamps, URLs, browsers, and screen sizes
+- Performance ratings (Good, Needs Work, Poor) based on industry standards
 
 ### Essential Visualizations
 - Performance score gauge

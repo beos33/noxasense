@@ -55,7 +55,6 @@ The snippet implements a reliable data collection and sending strategy:
 1. **Session Management:**
    - Creates new session on first visit
    - Stores session data in localStorage
-   - Sends session data only when new
    - Refreshes session after 30 minutes
    - Maintains session ID across pageviews
 
@@ -64,10 +63,11 @@ The snippet implements a reliable data collection and sending strategy:
    - Updates metrics as they become available
    - Tracks browser and device capabilities
    - Records screen dimensions and timezone
+   - Collects Navigation Timing metrics
 
 3. **Sending Strategy:**
-   - Sends session data immediately for new sessions
    - Sends pageview data when user leaves the page
+   - Includes all performance metrics and session information
    - Uses `fetch` with `keepalive: true` for reliable delivery
    - Implements retry logic for failed attempts
    - Prevents duplicate sends via tracking

@@ -44,13 +44,27 @@ cd noxasense
 2. Install Dependencies
 
 ```bash
-npm install
+npm run install:all
 ```
 
 3. Run the Development Environment
 
 ```bash
 npm run dev
+```
+
+This will start both the CDN server (HTTPS on port 3001) and the Dashboard (Next.js on port 3000) simultaneously.
+
+### Individual Services
+
+You can also run services individually:
+
+```bash
+# CDN only (HTTPS server on port 3001)
+npm run dev:cdn
+
+# Dashboard only (Next.js on port 3000)
+npm run dev:dashboard
 ```
 
 ## Documentation

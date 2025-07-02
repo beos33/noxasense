@@ -2,33 +2,11 @@
 
 ## Description
 
-The API receives performance data from the CDN snippet and stores it in Supabase. It now uses separate endpoints for session and pageview data handling.
+The API receives performance data from the CDN snippet and stores it in Supabase. It uses a single endpoint for pageview data handling, which includes all performance metrics and session information.
 
 ## Functional Requirements
 
 ### Endpoints
-
-#### Session Endpoint
-- `POST /api/track/session`: Accepts session data payload
-  ```json
-  {
-    "session": {
-      "session_id": "uuid",
-      "application_id": "string",
-      "created_at": "iso-timestamp",
-      "browser": "string",
-      "browser_version": "string",
-      "user_agent": "string",
-      "screen_width": "number",
-      "screen_height": "number",
-      "timezone": "string",
-      "language": "string",
-      "device_type": "mobile|desktop",
-      "device_memory": "number",
-      "referrer": "string"
-    }
-  }
-  ```
 
 #### Pageview Endpoint
 - `POST /api/track`: Accepts pageview data payload
@@ -74,19 +52,19 @@ The API implements the following CORS and caching headers for all endpoints:
 
 ### Database Integration
 - Uses Supabase JS client v2.49.4
-- Inserts session data into `sessions` table
 - Inserts pageview data into `pageviews` table
+- Links pageviews to sessions via `session_id`
 - Links sessions to applications via `application_id`
 
 ## Implementation Overview
 
-- Separate API handlers for sessions (`api/track/session.js`) and pageviews (`api/track.js`)
-- Processes session and pageview data independently
+- Single API handler for pageviews (`api/track.js`)
+- Processes pageview data with all performance metrics
 - Logs errors and returns appropriate HTTP status codes
 - Handles CORS for all origins with preflight requests
 - Supports both OPTIONS (preflight) and POST requests
 
-### Sample Server Code - Session Handler
+### Sample Server Code - Pageview Handler
 
 ```js
 import { createClient } from '@supabase/supabase-js';
@@ -121,13 +99,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { session } = req.body;
-    const { error } = await supabase.from('sessions').insert([session]);
+    const { pageviews } = req.body;
+    const { error } = await supabase.from('pageviews').insert(pageviews);
     
     if (error) throw error;
     return res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Session API error:', error);
+    console.error('Pageview API error:', error);
     return res.status(500).json({ 
       error: 'Internal server error',
       details: error.message
@@ -152,10 +130,9 @@ SUPABASE_SERVICE_ROLE_KEY=your-secret-key
 
 ## Notes
 
-- Each endpoint handles its specific data type independently
-- Session data is sent only when a new session is created
+- Pageview data includes all performance metrics and session information
 - Pageview data is sent when the user leaves the page
-- All endpoints are public but require valid payload structure
+- The endpoint is public but requires valid payload structure
 - Consider implementing:
   - Schema validation for payloads
   - Rate limiting per application_id
