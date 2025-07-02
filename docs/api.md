@@ -2,13 +2,14 @@
 
 ## Description
 
-The API receives performance data from the CDN snippet and stores it in Supabase. It handles both session and pageview data in a single endpoint.
+The API receives performance data from the CDN snippet and stores it in Supabase. It now uses separate endpoints for session and pageview data handling.
 
 ## Functional Requirements
 
 ### Endpoints
 
-- `POST /api/track`: Accepts performance data payload containing session and pageviews
+#### Session Endpoint
+- `POST /api/track/session`: Accepts session data payload
   ```json
   {
     "session": {
@@ -16,13 +17,23 @@ The API receives performance data from the CDN snippet and stores it in Supabase
       "application_id": "string",
       "created_at": "iso-timestamp",
       "browser": "string",
-      "os": "string",
-      "screen_resolution": "string",
+      "browser_version": "string",
+      "user_agent": "string",
+      "screen_width": "number",
+      "screen_height": "number",
       "timezone": "string",
       "language": "string",
       "device_type": "mobile|desktop",
+      "device_memory": "number",
       "referrer": "string"
-    },
+    }
+  }
+  ```
+
+#### Pageview Endpoint
+- `POST /api/track`: Accepts pageview data payload
+  ```json
+  {
     "pageviews": [
       {
         "pageview_id": "uuid",
@@ -40,27 +51,42 @@ The API receives performance data from the CDN snippet and stores it in Supabase
         "dom_interactive": "number",
         "dom_content_loaded": "number",
         "dom_complete": "number",
-        "load_time": "number"
+        "load_time": "number",
+        "tti": "number"
       }
     ]
   }
   ```
 
+### CORS and Caching Configuration
+
+The API implements the following CORS and caching headers for all endpoints:
+```json
+{
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Max-Age": "7200",
+  "Cache-Control": "public, max-age=7200",
+  "Vary": "Origin"
+}
+```
+
 ### Database Integration
-- Uses Supabase JS client
+- Uses Supabase JS client v2.49.4
 - Inserts session data into `sessions` table
 - Inserts pageview data into `pageviews` table
 - Links sessions to applications via `application_id`
 
 ## Implementation Overview
 
-- Uses a single API handler (`api/track.js`)
-- Processes session and pageview data in a single transaction
-- Logs errors and returns HTTP status codes accordingly
-- Handles CORS for all origins
+- Separate API handlers for sessions (`api/track/session.js`) and pageviews (`api/track.js`)
+- Processes session and pageview data independently
+- Logs errors and returns appropriate HTTP status codes
+- Handles CORS for all origins with preflight requests
 - Supports both OPTIONS (preflight) and POST requests
 
-### Sample Server Code
+### Sample Server Code - Session Handler
 
 ```js
 import { createClient } from '@supabase/supabase-js';
@@ -71,71 +97,48 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  // Handle CORS preflight requests
+  // Set CORS headers for all responses
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '7200',
+    'Cache-Control': 'public, max-age=7200'
+  };
+
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    res.setHeader(key, value);
+  });
+
+  // Handle preflight requests
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+    res.setHeader('Vary', 'Origin');
     return res.status(204).end();
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Set CORS headers for actual requests
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
   try {
-    let payload;
-    try {
-      payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    } catch (parseError) {
-      console.error('Failed to parse request body:', parseError);
-      return res.status(400).json({ error: 'Invalid JSON payload' });
-    }
-
-    if (!Array.isArray(payload)) {
-      return res.status(400).json({ error: 'Invalid payload format - must be an array' });
-    }
-
-    for (const item of payload) {
-      if (!item.eventType || !item.data) {
-        console.error('Invalid item format:', item);
-        continue;
-      }
-
-      try {
-        if (item.eventType === 'session') {
-          if (!item.data.application_id) {
-            console.error('Missing application_id in session data:', item);
-            continue;
-          }
-          const { error } = await supabase.from('sessions').insert([item.data]);
-          if (error) throw error;
-        } else if (item.eventType === 'pageview') {
-          const { error } = await supabase.from('pageviews').insert([item.data]);
-          if (error) throw error;
-        }
-      } catch (itemError) {
-        console.error(`Error processing ${item.eventType}:`, itemError);
-      }
-    }
-
-    return res.status(200).json({ status: 'ok' });
+    const { session } = req.body;
+    const { error } = await supabase.from('sessions').insert([session]);
+    
+    if (error) throw error;
+    return res.status(200).json({ success: true });
   } catch (error) {
-    console.error('API error in /track:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    console.error('Session API error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message
+    });
   }
 }
 ```
 
 ## Environment Variables
 
-Set in `.env` (root):
+Required in `.env`:
 ```env
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-secret-key
@@ -144,17 +147,17 @@ SUPABASE_SERVICE_ROLE_KEY=your-secret-key
 ## Deployment
 
 - Deployed via Vercel inside `apps/api` folder
-- Uses API file routing to expose `/api/track`
-- Works without extra `vercel.json` configuration
+- Uses API file routing to expose `/api/track` and `/api/track/session`
+- CORS and caching configured via `vercel.json`
 
 ## Notes
 
-- No validation or rate limiting included (yet)
-- For production, consider adding:
-  - Schema validation for session and pageview data
+- Each endpoint handles its specific data type independently
+- Session data is sent only when a new session is created
+- Pageview data is sent when the user leaves the page
+- All endpoints are public but require valid payload structure
+- Consider implementing:
+  - Schema validation for payloads
   - Rate limiting per application_id
   - RLS policies in Supabase
   - Error logging with monitoring tools
-- Each session is tied to an `application_id` for multi-app support
-- Pageviews are linked to sessions via `session_id`
-- CORS is configured to accept requests from all origins
