@@ -25,6 +25,7 @@
       this.session = this.getOrCreateSession();
       // Send session if it's new
       if (this.session._isNew) {
+        // Send session immediately
         this.sendSession();
       }
     }
@@ -34,19 +35,28 @@
      * @returns {Object} New session object
      */
     createNewSession() {
+      // Detect OS
+      let os = 'unknown';
+      if (navigator.userAgent.includes('Windows')) os = 'Windows';
+      else if (navigator.userAgent.includes('Mac')) os = 'macOS';
+      else if (navigator.userAgent.includes('Linux')) os = 'Linux';
+      else if (navigator.userAgent.includes('Android')) os = 'Android';
+      else if (navigator.userAgent.includes('iOS')) os = 'iOS';
+
       return {
         session_id: crypto.randomUUID(),
         application_id: appId,
         created_at: new Date().toISOString(),
-        browser: navigator.userAgent.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i)[1].toLowerCase(),
-        browser_version: navigator.userAgent.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i)[2],
+        browser: navigator.userAgent.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i)?.[1]?.toLowerCase() || 'unknown',
+        browser_version: navigator.userAgent.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i)?.[2] || 'unknown',
         user_agent: navigator.userAgent,
+        os: os,
         screen_width: screen.width,
         screen_height: screen.height,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         language: navigator.language,
         device_type: /Mobi/.test(navigator.userAgent) ? 'mobile' : 'desktop',
-        device_memory: navigator.deviceMemory,
+        device_memory: navigator.deviceMemory || null,
         referrer: document.referrer,
         _isNew: true
       };
@@ -102,10 +112,49 @@
    * Only sends new sessions and marks them as sent
    */
   async sendSession() {
-    // Session data is now included in pageview data, so we don't need to send separately
-    // This method is kept for compatibility but doesn't actually send data
-    this.session._isNew = false;
-    this.saveSession(this.session);
+    if (!this.session._isNew) {
+      return; // Don't send if already sent
+    }
+
+    try {
+      const sessionPayload = {
+        session: {
+          session_id: this.session.session_id,
+          application_id: this.session.application_id,
+          datetime: this.session.created_at,
+          browser: this.session.browser,
+          user_agent: this.session.user_agent,
+          os: this.session.os || null,
+          screen_resolution: `${this.session.screen_width}x${this.session.screen_height}`,
+          timezone: this.session.timezone,
+          language: this.session.language,
+          device_type: this.session.device_type,
+          device_memory: this.session.device_memory,
+          referrer: this.session.referrer
+        }
+      };
+
+      const response = await fetch('https://noxasense-api-v4.vercel.app/api/track/session', {
+        method: 'POST',
+        body: JSON.stringify(sessionPayload),
+        keepalive: true,
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        this.session._isNew = false;
+        this.saveSession(this.session);
+        console.log('NoxaSense: Session sent successfully');
+      } else {
+        console.warn('NoxaSense: Failed to send session:', response.status);
+      }
+    } catch (error) {
+      console.warn('NoxaSense: Error sending session:', error.message);
+    }
   }
 
     getSessionId() {

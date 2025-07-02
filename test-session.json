@@ -1,0 +1,16 @@
+{
+  "session": {
+    "session_id": "123e4567-e89b-12d3-a456-426614174001",
+    "application_id": "test-app-123",
+    "datetime": "2024-01-01T00:00:00Z",
+    "browser": "chrome",
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "os": "macOS",
+    "screen_resolution": "1920x1080",
+    "timezone": "UTC",
+    "language": "en",
+    "device_type": "desktop",
+    "device_memory": 8,
+    "referrer": ""
+  }
+} 

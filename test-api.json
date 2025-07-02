@@ -1,0 +1,32 @@
+{
+  "pageviews": [
+    {
+      "pageview_id": "123e4567-e89b-12d3-a456-426614174000",
+      "session_id": "123e4567-e89b-12d3-a456-426614174001",
+      "created_at": "2024-01-01T00:00:00Z",
+      "domain": "test.com",
+      "path": "/",
+      "parameters": "",
+      "browser": "chrome",
+      "browser_version": "120",
+      "user_agent": "test",
+      "screen_width": 1920,
+      "screen_height": 1080,
+      "timezone": "UTC",
+      "language": "en",
+      "device_type": "desktop",
+      "device_memory": 8,
+      "referrer": "",
+      "cls": 0.1,
+      "lcp": 2000,
+      "fid": 50,
+      "ttfb": 100,
+      "fcp": 1500,
+      "inp": 200,
+      "dom_interactive": 1000,
+      "dom_content_loaded": 800,
+      "dom_complete": 1200,
+      "load_time": 1500
+    }
+  ]
+} 
