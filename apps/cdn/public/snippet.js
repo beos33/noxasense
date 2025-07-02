@@ -175,43 +175,51 @@
    * Collects and sends pageview data with performance metrics
    */
 
-  // Initialize pageview data structure
-  const pageviewData = {
-    pageview_id: crypto.randomUUID(),
-    session_id: sessionManager.getSessionId(),
-    created_at: new Date().toISOString(),
-    domain: window.location.hostname,
-    path: window.location.pathname,
-    parameters: window.location.search,
-    // Session information
-    browser: sessionManager.getSession().browser,
-    browser_version: sessionManager.getSession().browser_version,
-    user_agent: sessionManager.getSession().user_agent,
-    screen_width: sessionManager.getSession().screen_width,
-    screen_height: sessionManager.getSession().screen_height,
-    timezone: sessionManager.getSession().timezone,
-    language: sessionManager.getSession().language,
-    device_type: sessionManager.getSession().device_type,
-    device_memory: sessionManager.getSession().device_memory,
-    referrer: sessionManager.getSession().referrer,
-    // Performance metrics (populated by Web Vitals)
-    cls: undefined,         // Cumulative Layout Shift
-    lcp: undefined,         // Largest Contentful Paint
-    fid: undefined,         // First Input Delay
-    ttfb: undefined,        // Time to First Byte
-    fcp: undefined,         // First Contentful Paint
-    inp: undefined,         // Interaction to Next Paint
-    visible_duration: undefined,
-    // Navigation Timing metrics
-    dom_interactive: undefined,
-    dom_content_loaded: undefined,
-    dom_complete: undefined,
-    load_time: undefined,
-    tti: undefined         // Time to Interactive
-  };
-
   // Track sent pageviews to prevent duplicates
   const sentPageviews = new Set();
+
+  /**
+   * Creates a new pageview data structure for each page load
+   * @returns {Object} Fresh pageview data object
+   */
+  function createPageviewData() {
+    return {
+      pageview_id: crypto.randomUUID(),
+      session_id: sessionManager.getSessionId(),
+      created_at: new Date().toISOString(),
+      domain: window.location.hostname,
+      path: window.location.pathname,
+      parameters: window.location.search,
+      // Session information
+      browser: sessionManager.getSession().browser,
+      browser_version: sessionManager.getSession().browser_version,
+      user_agent: sessionManager.getSession().user_agent,
+      screen_width: sessionManager.getSession().screen_width,
+      screen_height: sessionManager.getSession().screen_height,
+      timezone: sessionManager.getSession().timezone,
+      language: sessionManager.getSession().language,
+      device_type: sessionManager.getSession().device_type,
+      device_memory: sessionManager.getSession().device_memory,
+      referrer: sessionManager.getSession().referrer,
+      // Performance metrics (populated by Web Vitals)
+      cls: undefined,         // Cumulative Layout Shift
+      lcp: undefined,         // Largest Contentful Paint
+      fid: undefined,         // First Input Delay
+      ttfb: undefined,        // Time to First Byte
+      fcp: undefined,         // First Contentful Paint
+      inp: undefined,         // Interaction to Next Paint
+      visible_duration: undefined,
+      // Navigation Timing metrics
+      dom_interactive: undefined,
+      dom_content_loaded: undefined,
+      dom_complete: undefined,
+      load_time: undefined,
+      tti: undefined         // Time to Interactive
+    };
+  }
+
+  // Initialize pageview data structure for current page load
+  let pageviewData = createPageviewData();
 
   /**
    * Sends data to the API endpoint
@@ -274,6 +282,9 @@
     };
     
     sendWithRetry();
+    
+    // Create new pageview data for next page load
+    pageviewData = createPageviewData();
   }
 
   /**
@@ -293,7 +304,7 @@
   webVitals.onFCP(metric => updatePageviewMetric('fcp', metric.value));
   webVitals.onINP(metric => updatePageviewMetric('inp', metric.value));
 
-  // Collect Navigation Timing metrics
+  // Collect Navigation Timing metrics and create new pageview data on page load
   window.addEventListener("load", function () {
     try {
       const nav = performance.getEntriesByType('navigation')[0];
@@ -306,6 +317,9 @@
     } catch (e) {
       console.warn("Failed to update DOM timing metrics", e);
     }
+    
+    // Create new pageview data for next page load (for SPAs and page refreshes)
+    pageviewData = createPageviewData();
   });
 
   // Send pageview data when user leaves the page
