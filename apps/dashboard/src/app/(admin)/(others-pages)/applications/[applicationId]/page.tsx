@@ -100,14 +100,14 @@ export default function ApplicationDetail({ params }: { params: Promise<{ applic
     if (!user || !applicationId) return;
     
     try {
-      // Get pageviews for this application (join with sessions)
+      // Get pageviews for this application
       const { data, error } = await supabase
         .from('pageviews')
         .select(`
           cls, lcp, fid, ttfb, fcp, inp, dom_interactive, dom_content_loaded, dom_complete, load_time,
-          sessions!inner(application_id)
+          domain, browser, created_at
         `)
-        .eq('sessions.application_id', applicationId)
+        .eq('domain', application?.domain)
         .not('cls', 'is', null)
         .not('lcp', 'is', null)
         .not('fid', 'is', null)

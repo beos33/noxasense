@@ -24,7 +24,8 @@ export default async function handler(req, res) {
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.setHeader('Vary', 'Origin');
-    return res.status(204).end();
+    res.status(204).end();
+    return;
   }
 
   // Only allow POST requests

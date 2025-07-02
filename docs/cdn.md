@@ -64,13 +64,15 @@ The snippet implements a reliable data collection and sending strategy:
    - Tracks browser and device capabilities
    - Records screen dimensions and timezone
    - Collects Navigation Timing metrics
+   - Embeds session information in pageview data
 
 3. **Sending Strategy:**
-   - Sends pageview data when user leaves the page
-   - Includes all performance metrics and session information
+   - Sends unified pageview data when user leaves the page
+   - Includes all performance metrics and session information in single record
    - Uses `fetch` with `keepalive: true` for reliable delivery
    - Implements retry logic for failed attempts
    - Prevents duplicate sends via tracking
+   - Improved error handling and logging
 
 ## Integration
 
@@ -92,12 +94,16 @@ Add the following script to your website:
 
 ## Data Structures
 
-### Session Data
+### Unified Pageview Data
 ```javascript
 {
+  pageview_id: "uuid",
   session_id: "uuid",
-  application_id: "string",
   created_at: "iso-timestamp",
+  domain: "string",
+  path: "string",
+  parameters: "string",
+  // Session information (embedded)
   browser: "string",
   browser_version: "string",
   user_agent: "string",
@@ -107,19 +113,8 @@ Add the following script to your website:
   language: "string",
   device_type: "mobile|desktop",
   device_memory: "number",
-  referrer: "string"
-}
-```
-
-### Pageview Data
-```javascript
-{
-  pageview_id: "uuid",
-  session_id: "uuid",
-  created_at: "iso-timestamp",
-  domain: "string",
-  path: "string",
-  parameters: "string",
+  referrer: "string",
+  // Performance metrics
   cls: "number",
   lcp: "number",
   fid: "number",
@@ -133,6 +128,8 @@ Add the following script to your website:
   tti: "number"
 }
 ```
+
+**Note**: Session and pageview data are now unified into a single record for improved performance and simplified data management.
 
 ## Dependencies
 

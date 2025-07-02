@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "functions": {
+    "api/track.js": {
+      "maxDuration": 10
+    }
+  },
   "headers": [
     {
       "source": "/api/(.*)",
@@ -14,7 +19,7 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type"
+          "value": "Content-Type, Authorization"
         },
         {
           "key": "Access-Control-Max-Age",

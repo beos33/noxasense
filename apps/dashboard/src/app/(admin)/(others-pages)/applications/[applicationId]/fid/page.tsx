@@ -75,15 +75,12 @@ export default function FIDDetail({ params }: { params: Promise<{ applicationId:
           parameters,
           fid,
           created_at,
-          sessions!inner(
-            browser,
-            language,
-            screen_width,
-            screen_height,
-            application_id
-          )
+          browser,
+          language,
+          screen_width,
+          screen_height
         `)
-        .eq('sessions.application_id', applicationId)
+        .eq('domain', application?.domain)
         .not('fid', 'is', null)
         .order('created_at', { ascending: false });
 
@@ -97,7 +94,12 @@ export default function FIDDetail({ params }: { params: Promise<{ applicationId:
         parameters: item.parameters,
         fid: item.fid,
         created_at: item.created_at,
-        sessions: Array.isArray(item.sessions) ? item.sessions[0] : item.sessions
+        sessions: {
+          browser: item.browser,
+          language: item.language,
+          screen_width: item.screen_width,
+          screen_height: item.screen_height
+        }
       }));
       
       setPageviews(transformedData);

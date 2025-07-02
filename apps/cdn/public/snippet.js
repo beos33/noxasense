@@ -97,34 +97,16 @@
       localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     }
 
-    /**
-     * Sends the session data to the API
-     * Only sends new sessions and marks them as sent
-     */
-    async sendSession() {
-      try {
-        const sessionData = { ...this.session };
-        delete sessionData._isNew;
-
-        const response = await fetch(apiUrl + '/session', {
-          method: 'POST',
-          body: JSON.stringify({ session: sessionData }),
-          keepalive: true,
-          mode: 'cors',
-          credentials: 'omit',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          this.session._isNew = false;
-          this.saveSession(this.session);
-        }
-      } catch (error) {
-        console.error('Failed to send session:', error);
-      }
-    }
+      /**
+   * Sends the session data to the API
+   * Only sends new sessions and marks them as sent
+   */
+  async sendSession() {
+    // Session data is now included in pageview data, so we don't need to send separately
+    // This method is kept for compatibility but doesn't actually send data
+    this.session._isNew = false;
+    this.saveSession(this.session);
+  }
 
     getSessionId() {
       return this.session.session_id;
@@ -152,6 +134,17 @@
     domain: window.location.hostname,
     path: window.location.pathname,
     parameters: window.location.search,
+    // Session information
+    browser: sessionManager.getSession().browser,
+    browser_version: sessionManager.getSession().browser_version,
+    user_agent: sessionManager.getSession().user_agent,
+    screen_width: sessionManager.getSession().screen_width,
+    screen_height: sessionManager.getSession().screen_height,
+    timezone: sessionManager.getSession().timezone,
+    language: sessionManager.getSession().language,
+    device_type: sessionManager.getSession().device_type,
+    device_memory: sessionManager.getSession().device_memory,
+    referrer: sessionManager.getSession().referrer,
     // Performance metrics (populated by Web Vitals)
     cls: undefined,         // Cumulative Layout Shift
     lcp: undefined,         // Largest Contentful Paint
@@ -188,8 +181,18 @@
         headers: {
           'Content-Type': 'application/json'
         }
-      }).then(() => true).catch(() => false);
+      }).then((response) => {
+        if (!response.ok) {
+          console.warn('NoxaSense: API request failed with status:', response.status);
+          return false;
+        }
+        return true;
+      }).catch((error) => {
+        console.warn('NoxaSense: Failed to send data:', error.message);
+        return false;
+      });
     } catch (error) {
+      console.warn('NoxaSense: Error in sendBeacon:', error.message);
       return false;
     }
   }
@@ -208,12 +211,16 @@
       pageviews: [pageviewData]
     };
     
-    const sendWithRetry = (retries = 2) => {
-      const success = sendBeacon(apiUrl, payload);
+    const sendWithRetry = async (retries = 2) => {
+      const success = await sendBeacon(apiUrl, payload);
       if (success) {
         sentPageviews.add(pageviewData.pageview_id);
+        console.log('NoxaSense: Data sent successfully');
       } else if (retries > 0) {
+        console.log(`NoxaSense: Retrying... (${retries} attempts left)`);
         setTimeout(() => sendWithRetry(retries - 1), 1000);
+      } else {
+        console.warn('NoxaSense: Failed to send data after all retries');
       }
     };
     

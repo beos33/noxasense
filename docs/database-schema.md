@@ -44,11 +44,21 @@
 | Field              | Type      |
 |--------------------|-----------|
 | pageview_id        | UUID (PK) |
-| session_id         | UUID (FK → sessions.session_id) |
+| session_id         | UUID      |
 | created_at         | Timestamp |
 | domain             | Text      |
 | path               | Text      |
 | parameters         | Text      |
+| browser            | Text      |
+| browser_version    | Text      |
+| user_agent         | Text      |
+| screen_width       | Integer   |
+| screen_height      | Integer   |
+| timezone           | Text      |
+| language           | Text      |
+| device_type        | Text      |
+| device_memory      | Float     |
+| referrer           | Text      |
 | cls                | Float     |
 | lcp                | Float     |
 | fid                | Float     |
@@ -61,7 +71,8 @@
 | load_time          | Float     |
 
 ### Relationships
-- Many pageviews per session.
+- Pageviews are self-contained with session information included.
+- No foreign key relationship needed since session data is embedded.
 
 ---
 
@@ -73,20 +84,18 @@ To improve query performance, especially when filtering or joining:
 -- Applications
 create index idx_applications_user_id on applications (user_id);
 
--- Sessions
-create index idx_sessions_application_id on sessions (application_id);
-create index idx_sessions_datetime on sessions (datetime);
-
 -- Pageviews
 create index idx_pageviews_session_id on pageviews (session_id);
-create index idx_pageviews_datetime on pageviews (datetime);
+create index idx_pageviews_created_at on pageviews (created_at);
 create index idx_pageviews_path on pageviews (path);
+create index idx_pageviews_domain on pageviews (domain);
+create index idx_pageviews_browser on pageviews (browser);
 ```
 
 These indexes support common lookup patterns such as:
-- Filtering by `application_id` to get all sessions
-- Filtering by `session_id` to get all pageviews
-- Time-based analytics
+- Filtering by session_id to get all pageviews for a session
+- Time-based analytics and reporting
+- Browser and domain-specific queries
 
 ---
 
