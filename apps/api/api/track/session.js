@@ -50,9 +50,15 @@ export default async function handler(req, res) {
 
     // Only insert if session doesn't exist
     if (!existingSession) {
+      // Prepare session data with required fields
+      const sessionData = {
+        ...payload.session,
+        created_at: payload.session.datetime || payload.session.created_at || new Date().toISOString()
+      };
+
       const { error: sessionError } = await supabase
         .from('sessions')
-        .insert(payload.session);
+        .insert(sessionData);
 
       if (sessionError) {
         console.error('Session insert error:', sessionError);
