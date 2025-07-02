@@ -1,43 +1,191 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useModal } from "../../hooks/useModal";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
+import { useAuth } from "../../context/AuthContext";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import CountrySelector from "@/components/form/CountrySelector";
+
+interface UserProfile {
+  id: string;
+  company_name: string;
+  address: string;
+  address_2: string;
+  country: string;
+  city: string;
+  postal_code: string;
+  tax_id: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function UserAddressCard() {
   const { isOpen, openModal, closeModal } = useModal();
-  const handleSave = () => {
-    // Handle save logic here
-    console.log("Saving changes...");
-    closeModal();
+  const { user } = useAuth();
+  const supabase = createClientComponentClient();
+  
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  
+  // Form state
+  const [companyName, setCompanyName] = useState("");
+  const [address, setAddress] = useState("");
+  const [address2, setAddress2] = useState("");
+  const [country, setCountry] = useState("");
+  const [city, setCity] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [taxId, setTaxId] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        throw error;
+      }
+
+      if (data) {
+        setProfile(data);
+        setCompanyName(data.company_name || "");
+        setAddress(data.address || "");
+        setAddress2(data.address_2 || "");
+        setCountry(data.country || "");
+        setCity(data.city || "");
+        setPostalCode(data.postal_code || "");
+        setTaxId(data.tax_id || "");
+      } else {
+        // Create empty profile if none exists
+        setProfile(null);
+        setCompanyName("");
+        setAddress("");
+        setAddress2("");
+        setCountry("");
+        setCity("");
+        setPostalCode("");
+        setTaxId("");
+      }
+    } catch (err: any) {
+      console.error('Error fetching profile:', err.message);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleSave = async () => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    setError("");
+
+    try {
+      if (profile) {
+        // Update existing profile
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({
+            company_name: companyName,
+            address: address,
+            address_2: address2,
+            country: country,
+            city: city,
+            postal_code: postalCode,
+            tax_id: taxId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+
+        if (error) throw error;
+      } else {
+        // Create new profile
+        const { error } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: user.id,
+            company_name: companyName,
+            address: address,
+            address_2: address2,
+            country: country,
+            city: city,
+            postal_code: postalCode,
+            tax_id: taxId
+          });
+
+        if (error) throw error;
+      }
+
+      // Refresh profile data
+      await fetchProfile();
+      closeModal();
+    } catch (err: any) {
+      console.error('Error saving profile:', err.message);
+      setError(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
+        <div className="flex items-center justify-center py-8">
+          <div className="text-gray-500">Loading profile...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">
-              Address
+              Company
             </h4>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
               <div>
                 <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                  Country
+                  Company Name
                 </p>
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  United States
+                  {profile?.company_name || 'Not set'}
                 </p>
               </div>
 
               <div>
                 <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                  City/State
+                  Address
                 </p>
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  Phoenix, Arizona, United States.
+                  {profile?.address || 'Not set'}
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                  Address 2
+                </p>
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {profile?.address_2 || 'Not set'}
                 </p>
               </div>
 
@@ -46,7 +194,16 @@ export default function UserAddressCard() {
                   Postal Code
                 </p>
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  ERT 2489
+                  {profile?.postal_code || 'Not set'}
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                  City/State
+                </p>
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {profile?.city || 'Not set'}
                 </p>
               </div>
 
@@ -55,7 +212,16 @@ export default function UserAddressCard() {
                   TAX ID
                 </p>
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  AS4568384
+                  {profile?.tax_id || 'Not set'}
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                  Country
+                </p>
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {profile?.country || 'Not set'}
                 </p>
               </div>
             </div>
@@ -94,27 +260,76 @@ export default function UserAddressCard() {
               Update your details to keep your profile up-to-date.
             </p>
           </div>
+          
+          {error && (
+            <div className="p-3 mb-4 text-sm text-red-500 bg-red-100 rounded-lg dark:bg-red-900/50">
+              {error}
+            </div>
+          )}
+          
           <form className="flex flex-col">
             <div className="px-2 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                <div>
-                  <Label>Country</Label>
-                  <Input type="text" defaultValue="United States" />
+                <div className="lg:col-span-2">
+                  <Label>Company Name</Label>
+                  <Input 
+                    type="text" 
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                  />
                 </div>
 
                 <div>
-                  <Label>City/State</Label>
-                  <Input type="text" defaultValue="Arizona, United States." />
+                  <Label>Address</Label>
+                  <Input 
+                    type="text" 
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label>Address 2</Label>
+                  <Input 
+                    type="text" 
+                    value={address2}
+                    onChange={(e) => setAddress2(e.target.value)}
+                  />
                 </div>
 
                 <div>
                   <Label>Postal Code</Label>
-                  <Input type="text" defaultValue="ERT 2489" />
+                  <Input 
+                    type="text" 
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                  />
                 </div>
 
                 <div>
-                  <Label>TAX ID</Label>
-                  <Input type="text" defaultValue="AS4568384" />
+                  <Label>City/State</Label>
+                  <Input 
+                    type="text" 
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                  />
+                </div>
+
+                <div className="lg:col-span-2">
+                  <Label>Tax ID</Label>
+                  <Input 
+                    type="text" 
+                    value={taxId}
+                    onChange={(e) => setTaxId(e.target.value)}
+                  />
+                </div>
+
+                <div className="lg:col-span-2">
+                  <Label>Country</Label>
+                  <CountrySelector 
+                    value={country}
+                    onChange={(value) => setCountry(value)}
+                  />
                 </div>
               </div>
             </div>
@@ -122,8 +337,12 @@ export default function UserAddressCard() {
               <Button size="sm" variant="outline" onClick={closeModal}>
                 Close
               </Button>
-              <Button size="sm" onClick={handleSave}>
-                Save Changes
+              <Button 
+                size="sm" 
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </form>

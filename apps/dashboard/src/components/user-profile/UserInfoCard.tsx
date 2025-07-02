@@ -1,18 +1,132 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useModal } from "../../hooks/useModal";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
+import { useAuth } from "../../context/AuthContext";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+
+interface UserProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function UserInfoCard() {
   const { isOpen, openModal, closeModal } = useModal();
-  const handleSave = () => {
-    // Handle save logic here
-    console.log("Saving changes...");
-    closeModal();
+  const { user } = useAuth();
+  const supabase = createClientComponentClient();
+  
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  
+  // Form state
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        throw error;
+      }
+
+      if (data) {
+        setProfile(data);
+        setFirstName(data.first_name || "");
+        setLastName(data.last_name || "");
+        setPhone(data.phone || "");
+      } else {
+        // Create empty profile if none exists
+        setProfile(null);
+        setFirstName("");
+        setLastName("");
+        setPhone("");
+      }
+    } catch (err: any) {
+      console.error('Error fetching profile:', err.message);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleSave = async () => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    setError("");
+
+    try {
+      if (profile) {
+        // Update existing profile
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({
+            first_name: firstName,
+            last_name: lastName,
+            phone: phone,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+
+        if (error) throw error;
+      } else {
+        // Create new profile
+        const { error } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: user.id,
+            first_name: firstName,
+            last_name: lastName,
+            phone: phone
+          });
+
+        if (error) throw error;
+      }
+
+      // Refresh profile data
+      await fetchProfile();
+      closeModal();
+    } catch (err: any) {
+      console.error('Error saving profile:', err.message);
+      setError(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
+        <div className="flex items-center justify-center py-8">
+          <div className="text-gray-500">Loading profile...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -27,7 +141,7 @@ export default function UserInfoCard() {
                 First Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Musharof
+                {profile?.first_name || 'Not set'}
               </p>
             </div>
 
@@ -36,7 +150,7 @@ export default function UserInfoCard() {
                 Last Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Chowdhury
+                {profile?.last_name || 'Not set'}
               </p>
             </div>
 
@@ -45,7 +159,7 @@ export default function UserInfoCard() {
                 Email address
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                randomuser@pimjo.com
+                {user?.email || 'Not available'}
               </p>
             </div>
 
@@ -54,10 +168,9 @@ export default function UserInfoCard() {
                 Phone
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                +09 363 398 46
+                {profile?.phone || 'Not set'}
               </p>
             </div>
-
           </div>
         </div>
 
@@ -94,9 +207,15 @@ export default function UserInfoCard() {
               Update your details to keep your profile up-to-date.
             </p>
           </div>
+          
+          {error && (
+            <div className="p-3 mb-4 text-sm text-red-500 bg-red-100 rounded-lg dark:bg-red-900/50">
+              {error}
+            </div>
+          )}
+          
           <form className="flex flex-col">
             <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
-
               <div className="mt-7">
                 <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                   Personal Information
@@ -105,24 +224,40 @@ export default function UserInfoCard() {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>First Name</Label>
-                    <Input type="text" defaultValue="Musharof" />
+                    <Input 
+                      type="text" 
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                    />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Last Name</Label>
-                    <Input type="text" defaultValue="Chowdhury" />
+                    <Input 
+                      type="text" 
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                    />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
-                    <Input type="text" defaultValue="randomuser@pimjo.com" />
+                    <Input 
+                      type="email" 
+                      value={user?.email || ''} 
+                      disabled 
+                      className="bg-gray-100 dark:bg-gray-800"
+                    />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Phone</Label>
-                    <Input type="text" defaultValue="+09 363 398 46" />
+                    <Input 
+                      type="tel" 
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                    />
                   </div>
-
                 </div>
               </div>
             </div>
@@ -130,8 +265,12 @@ export default function UserInfoCard() {
               <Button size="sm" variant="outline" onClick={closeModal}>
                 Close
               </Button>
-              <Button size="sm" onClick={handleSave}>
-                Save Changes
+              <Button 
+                size="sm" 
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </form>

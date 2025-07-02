@@ -14,7 +14,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (session && isAuthPage) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL('/applications', request.url))
   }
 
   return res

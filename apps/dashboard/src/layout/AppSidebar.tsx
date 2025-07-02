@@ -46,12 +46,6 @@ const navItems: NavItem[] = [
     path: "/calendar",
   },
   {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
-  },
-
-  {
     name: "Forms",
     icon: <ListIcon />,
     subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
@@ -97,6 +91,31 @@ const othersItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+
+  // Check if we're on the applications page or its sub-pages
+  const isOnApplicationsPage = pathname.startsWith('/applications');
+
+  // Check if we're specifically on the main applications list page
+  const isOnApplicationsListPage = pathname === '/applications';
+
+  // Filter menu items based on current page
+  const getFilteredNavItems = () => {
+    if (isOnApplicationsListPage) {
+      // Only show Applications menu item on the main applications list page
+      return navItems.filter(item => item.path === '/applications');
+    }
+    // Show all menu items on other pages (including individual application pages)
+    return navItems;
+  };
+
+  const getFilteredOthersItems = () => {
+    if (isOnApplicationsListPage) {
+      // Hide all "Others" items on the main applications list page
+      return [];
+    }
+    // Show all "Others" items on other pages (including individual application pages)
+    return othersItems;
+  };
 
   const renderMenuItems = (
     navItems: NavItem[],
@@ -240,7 +259,7 @@ const AppSidebar: React.FC = () => {
     // Check if the current path matches any submenu item
     let submenuMatched = false;
     ["main", "others"].forEach((menuType) => {
-      const items = menuType === "main" ? navItems : othersItems;
+      const items = menuType === "main" ? getFilteredNavItems() : getFilteredOthersItems();
       items.forEach((nav, index) => {
         if (nav.subItems) {
           nav.subItems.forEach((subItem) => {
@@ -308,7 +327,7 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link href="/">
+        <Link href="/applications">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
               <Image
@@ -359,7 +378,7 @@ const AppSidebar: React.FC = () => {
                   <HorizontaLDots />
                 )}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(getFilteredNavItems(), "main")}
             </div>
 
             <div className="">
@@ -376,7 +395,7 @@ const AppSidebar: React.FC = () => {
                   <HorizontaLDots />
                 )}
               </h2>
-              {renderMenuItems(othersItems, "others")}
+              {renderMenuItems(getFilteredOthersItems(), "others")}
             </div>
           </div>
         </nav>

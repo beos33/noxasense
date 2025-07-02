@@ -37,7 +37,7 @@ export default function SignInForm() {
     <div className="flex flex-col flex-1 lg:w-1/2 w-full">
       <div className="w-full max-w-md sm:pt-10 mx-auto mb-5">
         <Link
-          href="/"
+          href="/applications"
           className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
         >
           <ChevronLeftIcon />
@@ -121,7 +121,7 @@ export default function SignInForm() {
                   <Input 
                     placeholder="info@gmail.com" 
                     type="email" 
-                    defaultValue={email}
+                    value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
@@ -133,7 +133,7 @@ export default function SignInForm() {
                     <Input
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
-                      defaultValue={password}
+                      value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
                     <span
@@ -164,9 +164,9 @@ export default function SignInForm() {
                 </div>
                 <div>
                   <Button 
+                    type="submit"
                     className="w-full" 
                     size="sm"
-                    onClick={handleSubmit}
                     disabled={isLoading}
                   >
                     {isLoading ? "Signing in..." : "Sign in"}

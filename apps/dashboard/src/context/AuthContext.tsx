@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     if (error) throw error
     router.refresh() // Refresh the page to update the session
-    router.push('/')
+    router.push('/applications')
   }
 
   const signup = async (email: string, password: string) => {
