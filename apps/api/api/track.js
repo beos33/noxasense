@@ -6,27 +6,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// CORS headers for public API
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Max-Age': '7200',
-  'Cache-Control': 'public, max-age=7200'
-};
-
 export default async function handler(req, res) {
   // Set CORS headers for all responses
-  Object.entries(corsHeaders).forEach(([key, value]) => {
-    res.setHeader(key, value);
-  });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
-    res.setHeader('Vary', 'Origin');
-    res.status(204).end();
+    console.log('Handling OPTIONS request');
+    res.status(200).end();
     return;
   }
+
+  console.log('Handling request:', req.method);
 
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -57,7 +50,11 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ success: true });
+    return res.status(200).json({ 
+      success: true, 
+      timestamp: new Date().toISOString(),
+      version: '2.0'
+    });
   } catch (error) {
     console.error('Unhandled error:', error);
     return res.status(500).json({ 
